@@ -125,3 +125,6 @@ License
 -------
 
 For license information see the file [COPYING](COPYING).
+
+## Builds
+[![Build Status](https://travis-ci.com/ismailtm/hush3.svg?branch=master)](https://travis-ci.com/ismailtm/hush3)
