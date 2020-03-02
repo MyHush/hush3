@@ -4068,21 +4068,8 @@ bool static DisconnectTip(CValidationState &state, bool fBare = false) {
     // Update chainActive and related variables.
     UpdateTip(pindexDelete->pprev);
 
-    // Get the current commitment tree
-    SproutMerkleTree newSproutTree;
-    SaplingMerkleTree newSaplingTree;
-    assert(pcoinsTip->GetSproutAnchorAt(pcoinsTip->GetBestAnchor(SPROUT), newSproutTree));
-    assert(pcoinsTip->GetSaplingAnchorAt(pcoinsTip->GetBestAnchor(SAPLING), newSaplingTree));
-    // Let wallets know transactions went from 1-confirmed to
-    // 0-confirmed or conflicted:
-    std::vector<uint256> TxToRemove;
-    for (int i = 0; i < block.vtx.size(); i++)
-    {
-        CTransaction &tx = block.vtx[i];
-        SyncWithWallets(tx, NULL);
-    }
-    // Update cached incremental witnesses
-    GetMainSignals().ChainTip(pindexDelete, &block, newSproutTree, newSaplingTree, false);
+    // Updates to connected wallets are triggered by ThreadNotifyWallets
+
     return true;
 }
 
@@ -4156,6 +4143,11 @@ static int64_t nTimeFlush = 0;
 static int64_t nTimeChainState = 0;
 static int64_t nTimePostConnect = 0;
 
+// Protected by cs_main
+std::map<CBlockIndex*, std::list<CTransaction>> recentlyConflictedTxs;
+uint64_t nRecentlyConflictedSequence = 0;
+uint64_t nNotifiedSequence = 0;
+
 /**
  * Connect a new block to chainActive. pblock is either NULL or a pointer to a CBlock
  * corresponding to pindexNew, to bypass loading it again from disk.
@@ -4175,14 +4167,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     }
     KOMODO_CONNECTING = (int32_t)pindexNew->GetHeight();
     //fprintf(stderr,"%s connecting ht.%d maxsize.%d vs %d\n",ASSETCHAINS_SYMBOL,(int32_t)pindexNew->GetHeight(),MAX_BLOCK_SIZE(pindexNew->GetHeight()),(int32_t)::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION));
-    // Get the current commitment tree
-    SproutMerkleTree oldSproutTree;
-    SaplingMerkleTree oldSaplingTree;
-    if ( KOMODO_NSPV_FULLNODE )
-    {
-        assert(pcoinsTip->GetSproutAnchorAt(pcoinsTip->GetBestAnchor(SPROUT), oldSproutTree));
-        assert(pcoinsTip->GetSaplingAnchorAt(pcoinsTip->GetBestAnchor(SAPLING), oldSaplingTree));
-    }
+ 
     // Apply the block atomically to the chain state.
     int64_t nTime2 = GetTimeMicros(); nTimeReadFromDisk += nTime2 - nTime1;
     int64_t nTime3;
@@ -4221,7 +4206,7 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     int64_t nTime5 = GetTimeMicros(); nTimeChainState += nTime5 - nTime4;
     LogPrint("bench", "  - Writing chainstate: %.2fms [%.2fs]\n", (nTime5 - nTime4) * 0.001, nTimeChainState * 0.000001);
     // Remove conflicting transactions from the mempool.
-    list<CTransaction> txConflicted;
+    std::list<CTransaction> txConflicted;
     mempool.removeForBlock(pblock->vtx, pindexNew->GetHeight(), txConflicted, !IsInitialBlockDownload());
 
     // Remove transactions that expire at new block height from mempool
@@ -4231,18 +4216,11 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     UpdateTip(pindexNew);
     if ( KOMODO_NSPV_FULLNODE )
     {
-        // Tell wallet about transactions that went from mempool
-        // to conflicted:
-        BOOST_FOREACH(const CTransaction &tx, txConflicted) {
-            SyncWithWallets(tx, NULL);
-        }
-        // ... and about transactions that got confirmed:
-        BOOST_FOREACH(const CTransaction &tx, pblock->vtx) {
-            SyncWithWallets(tx, pblock);
-        }
-    }
-    // Update cached incremental witnesses
-    GetMainSignals().ChainTip(pindexNew, pblock, oldSproutTree, oldSaplingTree, true);
+        
+    // Cache the conflicted transactions for subsequent notification.
+    // Updates to connected wallets are triggered by ThreadNotifyWallets
+    recentlyConflictedTxs.insert(std::make_pair(pindexNew, txConflicted));
+    nRecentlyConflictedSequence += 1;
 
     EnforceNodeDeprecation(pindexNew->GetHeight());
 
@@ -4277,6 +4255,31 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     }
 	//fprintf(stderr,"%s: returning true\n", __FUNCTION__);
     return true;
+}
+}
+std::pair<std::map<CBlockIndex*, std::list<CTransaction>>, uint64_t> DrainRecentlyConflicted()
+{
+    uint64_t recentlyConflictedSequence;
+    std::map<CBlockIndex*, std::list<CTransaction>> txs;
+    {
+        LOCK(cs_main);
+        recentlyConflictedSequence = nRecentlyConflictedSequence;
+        txs.swap(recentlyConflictedTxs);
+    }
+
+    return std::make_pair(txs, recentlyConflictedSequence);
+}
+
+void SetChainNotifiedSequence(uint64_t recentlyConflictedSequence) {
+    assert(Params().NetworkIDString() == "regtest");
+    LOCK(cs_main);
+    nNotifiedSequence = recentlyConflictedSequence;
+}
+
+bool ChainIsFullyNotified() {
+    assert(Params().NetworkIDString() == "regtest");
+    LOCK(cs_main);
+    return nRecentlyConflictedSequence == nNotifiedSequence;
 }
 
 /**
@@ -5316,10 +5319,10 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
         return(false);
     }
 
-    if (ptx)
-    {
-        SyncWithWallets(*ptx, &block);
-    }
+  //  if (ptx)
+  //  {
+   //     SyncWithWallets(*ptx, &block);
+  //  }
 
     if ( ASSETCHAINS_CC != 0 )
     {

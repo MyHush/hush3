@@ -1253,7 +1253,10 @@ public:
     CAmount GetCredit(const CTransaction& tx, int32_t voutNum, const isminefilter& filter) const;
     CAmount GetCredit(const CTransaction& tx, const isminefilter& filter) const;
     CAmount GetChange(const CTransaction& tx) const;
-    void ChainTip(const CBlockIndex *pindex, const CBlock *pblock, SproutMerkleTree sproutTree, SaplingMerkleTree saplingTree, bool added);
+    void ChainTip(
+        const CBlockIndex *pindex,
+        const CBlock *pblock,
+        boost::optional<std::pair<SproutMerkleTree, SaplingMerkleTree>> added);
     void RunSaplingConsolidation(int blockHeight);
     void CommitConsolidationTx(const CTransaction& tx);
     /** Saves witness caches and best block locator to disk. */

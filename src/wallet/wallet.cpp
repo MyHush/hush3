@@ -588,9 +588,7 @@ bool CWallet::ChangeWalletPassphrase(const SecureString& strOldWalletPassphrase,
 
 void CWallet::ChainTip(const CBlockIndex *pindex,
                        const CBlock *pblock,
-                       SproutMerkleTree sproutTree,
-                       SaplingMerkleTree saplingTree,
-                       bool added)
+                       boost::optional<std::pair<SproutMerkleTree, SaplingMerkleTree>> added)
 {
     if (added) {
            // Prevent witness cache building && consolidation transactions
