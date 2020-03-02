@@ -60,6 +60,14 @@ def sync_blocks(rpc_connections, wait=1):
             break
         time.sleep(wait)
 
+  # Now that the block counts are in sync, wait for the internal
+    # notifications to finish
+    while True:
+        notified = [ x.getblockchaininfo()['fullyNotified'] for x in rpc_connections ]
+        if notified == [ True ] * len(notified):
+            break
+        time.sleep(wait)
+
 def sync_mempools(rpc_connections, wait=1):
     """
     Wait until everybody has the same transactions in their memory

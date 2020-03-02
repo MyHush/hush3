@@ -44,6 +44,7 @@ class WalletShieldCoinbaseTest (BitcoinTestFramework):
         print "Mining blocks..."
 
         self.nodes[0].generate(1)
+        self.sync_all()
         do_not_shield_taddr = self.nodes[0].getnewaddress()
 
         self.nodes[0].generate(4)
