@@ -5323,7 +5323,9 @@ void CWallet::GetFilteredNotes(
     std::string address,
     int minDepth,
     bool ignoreSpent,
-    bool requireSpendingKey)
+    bool requireSpendingKey,
+    bool ignoreLocked,
+    bool ignoreZeroValue)
 {
     std::set<PaymentAddress> filterAddresses;
 
@@ -5331,7 +5333,7 @@ void CWallet::GetFilteredNotes(
         filterAddresses.insert(DecodePaymentAddress(address));
     }
 
-    GetFilteredNotes(sproutEntries, saplingEntries, filterAddresses, minDepth, INT_MAX, ignoreSpent, requireSpendingKey);
+    GetFilteredNotes(sproutEntries, saplingEntries, filterAddresses, minDepth, INT_MAX, ignoreSpent, requireSpendingKey, ignoreLocked, ignoreZeroValue);
 }
 
 /**
@@ -5347,7 +5349,8 @@ void CWallet::GetFilteredNotes(
     int maxDepth,
     bool ignoreSpent,
     bool requireSpendingKey,
-    bool ignoreLocked)
+    bool ignoreLocked,
+    bool ignoreZeroValue)
 {
     LOCK2(cs_main, cs_wallet);
 
@@ -5416,6 +5419,14 @@ void CWallet::GetFilteredNotes(
              if (ignoreLocked && IsLockedNote(op)) {
                  continue;
              }
+
+            // Most code does not want amount=0 zutxos
+            // except sapling consolidation
+            if (ignoreZeroValue) {
+                if (notePt.value() == 0) {
+                    continue;
+                }
+            }
 
             auto note = notePt.note(nd.ivk).get();
             saplingEntries.push_back(SaplingNoteEntry {
