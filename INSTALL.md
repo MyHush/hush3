@@ -2,17 +2,17 @@
 
 ## Installing Binaries
 
-To install a Debian package:
+To install a Debian/Ubuntu package:
 
-	dpkg -i hush-3.2.0-amd4.deb
+	sudo dpkg -i hush-3.2.0-amd4.deb
 
 To uninstall:
 
-	apt-get remove hush
+	sudo apt-get remove hush
 
 To use the Arch Linux AUR package:
 
-    yay -S hash3
+    sudo yay -S hash3
 
 ## Build HUSH dependencies
 
