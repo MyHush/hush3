@@ -50,6 +50,7 @@ cd hush3
 ### Arch Linux:
 
 ```sh
+# install build depedencies
 sudo pacman -S libsodium unzip wget git python pkgconf lib32-zlib rust
 # pull
 git clone https://github.com/MyHush/hush3.git
