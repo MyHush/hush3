@@ -10,6 +10,10 @@ To uninstall:
 
 	apt-get remove hush
 
+To use the Arch Linux AUR package:
+
+    yay -S hash3
+
 ## Build HUSH dependencies
 
 The following build process generally applies to Ubuntu (and similar) Linux
@@ -29,12 +33,24 @@ sudo swapon /swapfile
 
 ## Build on Linux:
 
+### Ubuntu 18.04:
 
 ```sh
 # install build depedencies
 sudo apt-get install build-essential pkg-config libc6-dev m4 g++-multilib \
       autoconf libtool ncurses-dev unzip git python zlib1g-dev wget \
       bsdmainutils automake curl unzip nano libsodium-dev
+# pull
+git clone https://github.com/MyHush/hush3.git
+cd hush3
+# Build
+./zcutil/build.sh -j$(nproc)
+```
+
+### Arch Linux:
+
+```sh
+sudo pacman -S libsodium unzip wget git python pkgconf lib32-zlib rust
 # pull
 git clone https://github.com/MyHush/hush3.git
 cd hush3
@@ -71,7 +87,7 @@ cd hush
 ./src/hushd
 ```
 
-Currently Linux,  Windows and Mac OS X are our supported platforms. If you
+Currently Linux, Windows and Mac OS X are our supported platforms. If you
 are interested in porting Hush to a new operating system, we are interested
 to talk with you. Experimental FreeBSD support is in progress, thanks to radix42.
 
