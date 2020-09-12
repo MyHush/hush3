@@ -73,7 +73,6 @@ extern char ASSETCHAINS_SYMBOL[KOMODO_ASSETCHAIN_MAXLEN];
 extern std::string ASSETCHAINS_OVERRIDE_PUBKEY;
 const std::string ADDR_TYPE_SAPLING = "sapling";
 const std::string ADDR_TYPE_DONOTREMEMBER = "donotremember";
-extern UniValue TxJoinSplitToJSON(const CTransaction& tx);
 extern int32_t KOMODO_INSYNC;
 uint32_t komodo_segid32(char *coinaddr);
 int32_t komodo_dpowconfs(int32_t height,int32_t numconfs);
@@ -170,7 +169,6 @@ void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
     BOOST_FOREACH(const PAIRTYPE(string,string)& item, wtx.mapValue)
         entry.push_back(Pair(item.first, item.second));
 
-    entry.push_back(Pair("vjoinsplit", TxJoinSplitToJSON(wtx)));
 }
 
 string AccountFromValue(const UniValue& value)
@@ -4885,6 +4883,8 @@ UniValue z_sendmany(const UniValue& params, bool fHelp, const CPubKey& mypk)
     o.push_back(Pair("amounts", params[1]));
     o.push_back(Pair("minconf", nMinDepth));
     o.push_back(Pair("fee", std::stod(FormatMoney(nFee))));
+    o.push_back(Pair("Inputs",tx.vShieldedSpend.size() +1));
+    o.push_back(Pair("Outputs", tx.vShieldedOutput.size() +1));
     UniValue contextInfo = o;
     if(fZdebug)
         LogPrintf("%s: Building the raw ztransaction\n", __FUNCTION__);
