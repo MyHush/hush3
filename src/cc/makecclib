@@ -1,4 +1,6 @@
-#!/bin/sh
+#!/bin/bash
+# Copyright (c) 2019-2020 The Hush developers
+
 rm *.so rogue/rogue games/tetris games/prices
 
 echo rogue

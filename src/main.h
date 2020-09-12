@@ -1,6 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
-// Copyright (c) 2019      The Hush developers
+// Copyright (c) 2019-2020 The Hush developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -948,5 +948,9 @@ uint64_t CalculateCurrentUsage();
 
 /** Return a CMutableTransaction with contextual default values based on set of consensus rules at height */
 CMutableTransaction CreateNewContextualCMutableTransaction(const Consensus::Params& consensusParams, int nHeight);
+
+std::pair<std::map<CBlockIndex*, std::list<CTransaction>>, uint64_t> DrainRecentlyConflicted();
+void SetChainNotifiedSequence(uint64_t recentlyConflictedSequence);
+bool ChainIsFullyNotified();
 
 #endif // BITCOIN_MAIN_H

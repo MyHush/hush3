@@ -1,11 +1,11 @@
 # mininode.py - Bitcoin P2P network half-a-node
 # Copyright (c) 2019 The Hush developers
-#
-# Distributed under the MIT/X11 software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+# Released under the GPLv3
 #
 # This python code was modified from ArtForz' public domain  half-a-node, as
 # found in the mini-node branch of http://github.com/jgarzik/pynode.
+# oringally from https://pastebin.com/ZSM7iHZw
+# Mad respect to ArtForz!!!!
 #
 # NodeConn: an object which manages p2p connectivity to a bitcoin node
 # NodeConnCB: a base class that describes the interface for receiving
@@ -44,7 +44,7 @@ OVERWINTER_PROTO_VERSION = 170003
 BIP0031_VERSION = 60000
 SPROUT_PROTO_VERSION = 170002  # past bip-31 for ping/pong
 SAPLING_PROTO_VERSION = 170006
-MY_SUBVERSION = "/python-mininode-hush-tester:0.0.1/"
+MY_SUBVERSION = "/python-mininode-hush-tester:3.3.0/"
 
 OVERWINTER_VERSION_GROUP_ID = 0x03C48270
 
@@ -1387,6 +1387,7 @@ class NodeConn(asyncore.dispatcher):
         "reject": msg_reject,
         "mempool": msg_mempool
     }
+    # TODO: are these correct for Hush?
     MAGIC_BYTES = {
         "mainnet": "\x24\xe9\x27\x64",   # mainnet
         "testnet3": "\xfa\x1a\xf9\xbf",  # testnet3
@@ -1416,7 +1417,7 @@ class NodeConn(asyncore.dispatcher):
         vt.addrFrom.ip = "0.0.0.0"
         vt.addrFrom.port = 0
         self.send_message(vt, True)
-        print 'MiniNode: Connecting to Bitcoin Node IP # ' + dstaddr + ':' \
+        print 'MiniNode: Connecting to Hush Full Node IP # ' + dstaddr + ':' \
             + str(dstport) + ' using version ' + str(protocol_version)
 
         try:

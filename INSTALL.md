@@ -39,7 +39,7 @@ sudo apt-get install build-essential pkg-config libc6-dev m4 g++-multilib \
 git clone https://github.com/MyHush/hush3.git
 cd hush3
 # Build
-./zcutil/build.sh -j$(nproc)
+./build.sh -j$(nproc)
 ```
 
 ## Run a HUSH Node
@@ -63,10 +63,8 @@ Downloading Git source repo, building and running Hush:
 # pull
 git clone https://github.com/MyHush/hush3.git
 cd hush
-# fetch key
-./zcutil/fetch-params.sh
 # Build
-./zcutil/build-win.sh -j$(nproc)
+./build-win.sh -j$(nproc)
 # Run a HUSH node
 ./src/hushd
 ```

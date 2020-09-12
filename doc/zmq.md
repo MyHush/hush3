@@ -5,8 +5,8 @@ connections, inter-process communication, and shared-memory,
 providing various message-oriented semantics such as publish/subscribe,
 request/reply, and push/pull.
 
-The Zcash daemon can be configured to act as a trusted "border
-router", implementing the Zcash wire protocol and relay, making
+The Hush daemon can be configured to act as a trusted "border
+router", implementing the Hush wire protocol and relay, making
 consensus decisions, maintaining the local blockchain database,
 broadcasting locally generated transactions into the network, and
 providing a queryable RPC interface to interact on a polled basis for
@@ -33,7 +33,7 @@ buffering or reassembly.
 
 ## Prerequisites
 
-The ZeroMQ feature in Zcash requires ZeroMQ API version 4.x or
+The ZeroMQ feature in Hush requires ZeroMQ API version 4.x or
 newer, which you will need to install if you are not using the depends
 system. Typically, it is packaged by distributions as something like
 *libzmq5-dev*. The C++ wrapper for ZeroMQ is *not* needed.
@@ -103,5 +103,5 @@ retrieve the chain from the last known block to the new tip.
 
 There are several possibilities that ZMQ notification can get lost
 during transmission depending on the communication type you are
-using. Zcashd appends an up-counting sequence number to each
+using. Hushd appends an up-counting sequence number to each
 notification which allows listeners to detect lost notifications.

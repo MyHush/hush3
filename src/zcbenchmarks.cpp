@@ -1,3 +1,5 @@
+// Copyright (c) 2019-2020 The Hush developers
+
 #include <cstdio>
 #include <future>
 #include <map>
@@ -23,7 +25,6 @@
 #include "sodium.h"
 #include "streams.h"
 #include "txdb.h"
-#include "utiltest.h"
 #include "wallet/wallet.h"
 
 #include "zcbenchmarks.h"
@@ -39,7 +40,7 @@ void pre_wallet_load()
 {
     LogPrintf("%s: In progress...\n", __func__);
     if (ShutdownRequested())
-        throw new std::runtime_error("The node is shutting down");
+        throw new std::runtime_error("The Hush node is shutting down");
 
     if (pwalletMain)
         pwalletMain->Flush(false);
@@ -88,79 +89,6 @@ double benchmark_sleep()
     struct timeval tv_start;
     timer_start(tv_start);
     sleep(1);
-    return timer_stop(tv_start);
-}
-
-double benchmark_parameter_loading()
-{
-    // FIXME: this is duplicated with the actual loading code
-    boost::filesystem::path pk_path = ZC_GetParamsDir() / "sprout-proving.key";
-    boost::filesystem::path vk_path = ZC_GetParamsDir() / "sprout-verifying.key";
-
-    struct timeval tv_start;
-    timer_start(tv_start);
-
-    auto newParams = ZCJoinSplit::Prepared(vk_path.string(), pk_path.string());
-
-    double ret = timer_stop(tv_start);
-
-    delete newParams;
-
-    return ret;
-}
-
-double benchmark_create_joinsplit()
-{
-    uint256 joinSplitPubKey;
-
-    /* Get the anchor of an empty commitment tree. */
-    uint256 anchor = SproutMerkleTree().root();
-
-    struct timeval tv_start;
-    timer_start(tv_start);
-    JSDescription jsdesc(true,
-                         *pzcashParams,
-                         joinSplitPubKey,
-                         anchor,
-                         {JSInput(), JSInput()},
-                         {JSOutput(), JSOutput()},
-                         0,
-                         0);
-    double ret = timer_stop(tv_start);
-
-    auto verifier = libzcash::ProofVerifier::Strict();
-    assert(jsdesc.Verify(*pzcashParams, verifier, joinSplitPubKey));
-    return ret;
-}
-
-std::vector<double> benchmark_create_joinsplit_threaded(int nThreads)
-{
-    std::vector<double> ret;
-    std::vector<std::future<double>> tasks;
-    std::vector<std::thread> threads;
-    for (int i = 0; i < nThreads; i++) {
-        std::packaged_task<double(void)> task(&benchmark_create_joinsplit);
-        tasks.emplace_back(task.get_future());
-        threads.emplace_back(std::move(task));
-    }
-    std::future_status status;
-    for (auto it = tasks.begin(); it != tasks.end(); it++) {
-        it->wait();
-        ret.push_back(it->get());
-    }
-    for (auto it = threads.begin(); it != threads.end(); it++) {
-        it->join();
-    }
-    return ret;
-}
-
-double benchmark_verify_joinsplit(const JSDescription &joinsplit)
-{
-    struct timeval tv_start;
-    timer_start(tv_start);
-    uint256 joinSplitPubKey;
-    auto verifier = libzcash::ProofVerifier::Strict();
-    joinsplit.Verify(*pzcashParams, verifier, joinSplitPubKey);
     return timer_stop(tv_start);
 }
 
@@ -278,160 +206,6 @@ double benchmark_large_tx(size_t nInputs)
                             &serror));
     }
     return timer_stop(tv_start);
-}
-
-double benchmark_try_decrypt_notes(size_t nAddrs)
-{
-    CWallet wallet;
-    for (int i = 0; i < nAddrs; i++) {
-        auto sk = libzcash::SproutSpendingKey::random();
-        wallet.AddSproutSpendingKey(sk);
-    }
-
-    auto sk = libzcash::SproutSpendingKey::random();
-    auto tx = GetValidReceive(*pzcashParams, sk, 10, true);
-
-    struct timeval tv_start;
-    timer_start(tv_start);
-    auto nd = wallet.FindMySproutNotes(tx);
-    return timer_stop(tv_start);
-}
-
-double benchmark_increment_note_witnesses(size_t nTxs)
-{
-    CWallet wallet;
-    SproutMerkleTree sproutTree;
-    SaplingMerkleTree saplingTree;
-
-    auto sk = libzcash::SproutSpendingKey::random();
-    wallet.AddSproutSpendingKey(sk);
-
-    // First block
-    CBlock block1;
-    for (int i = 0; i < nTxs; i++) {
-        auto wtx = GetValidReceive(*pzcashParams, sk, 10, true);
-        auto note = GetNote(*pzcashParams, sk, wtx, 0, 1);
-        auto nullifier = note.nullifier(sk);
-
-        mapSproutNoteData_t noteData;
-        JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
-        SproutNoteData nd {sk.address(), nullifier};
-        noteData[jsoutpt] = nd;
-
-        wtx.SetSproutNoteData(noteData);
-        wallet.AddToWallet(wtx, true, NULL);
-        block1.vtx.push_back(wtx);
-    }
-    CBlockIndex index1(block1);
-    index1.SetHeight(1);
-
-    // Increment to get transactions witnessed
-    wallet.ChainTip(&index1, &block1, sproutTree, saplingTree, true);
-
-    // Second block
-    CBlock block2;
-    block2.hashPrevBlock = block1.GetHash();
-    {
-        auto wtx = GetValidReceive(*pzcashParams, sk, 10, true);
-        auto note = GetNote(*pzcashParams, sk, wtx, 0, 1);
-        auto nullifier = note.nullifier(sk);
-
-        mapSproutNoteData_t noteData;
-        JSOutPoint jsoutpt {wtx.GetHash(), 0, 1};
-        SproutNoteData nd {sk.address(), nullifier};
-        noteData[jsoutpt] = nd;
-
-        wtx.SetSproutNoteData(noteData);
-        wallet.AddToWallet(wtx, true, NULL);
-        block2.vtx.push_back(wtx);
-    }
-    CBlockIndex index2(block2);
-    index2.SetHeight(2);
-
-    struct timeval tv_start;
-    timer_start(tv_start);
-    wallet.ChainTip(&index2, &block2, sproutTree, saplingTree, true);
-    return timer_stop(tv_start);
-}
-
-// Fake the input of a given block
-class FakeCoinsViewDB : public CCoinsViewDB {
-    uint256 hash;
-    SproutMerkleTree t;
-
-public:
-    FakeCoinsViewDB(std::string dbName, uint256& hash) : CCoinsViewDB(dbName, 100, false, false), hash(hash) {}
-
-    bool GetAnchorAt(const uint256 &rt, SproutMerkleTree &tree) const {
-        if (rt == t.root()) {
-            tree = t;
-            return true;
-        }
-        return false;
-    }
-
-    bool GetNullifier(const uint256 &nf, ShieldedType type) const {
-        return false;
-    }
-
-    uint256 GetBestBlock() const {
-        return hash;
-    }
-
-    uint256 GetBestAnchor() const {
-        return t.root();
-    }
-
-    bool BatchWrite(CCoinsMap &mapCoins,
-                    const uint256 &hashBlock,
-                    const uint256 &hashAnchor,
-                    CAnchorsSproutMap &mapSproutAnchors,
-                    CNullifiersMap &mapSproutNullifiers,
-                    CNullifiersMap& mapSaplingNullifiers) {
-        return false;
-    }
-
-    bool GetStats(CCoinsStats &stats) const {
-        return false;
-    }
-};
-
-double benchmark_connectblock_slow()
-{
-    // Test for issue 2017-05-01.a
-    SelectParams(CBaseChainParams::MAIN);
-    CBlock block;
-    FILE* fp = fopen((GetDataDir() / "benchmark/block-107134.dat").string().c_str(), "rb");
-    if (!fp) throw new std::runtime_error("Failed to open block data file");
-    CAutoFile blkFile(fp, SER_DISK, CLIENT_VERSION);
-    blkFile >> block;
-    blkFile.fclose();
-
-    // Fake its inputs
-    auto hashPrev = uint256S("00000000159a41f468e22135942a567781c3f3dc7ad62257993eb3c69c3f95ef");
-    FakeCoinsViewDB fakeDB("benchmark/block-107134-inputs", hashPrev);
-    CCoinsViewCache view(&fakeDB);
-
-    // Fake the chain
-    CBlockIndex index(block);
-    index.SetHeight(107134);
-    CBlockIndex indexPrev;
-    indexPrev.phashBlock = &hashPrev;
-    indexPrev.SetHeight(index.GetHeight() - 1);
-    index.pprev = &indexPrev;
-    mapBlockIndex.insert(std::make_pair(hashPrev, &indexPrev));
-
-    CValidationState state;
-    struct timeval tv_start;
-    timer_start(tv_start);
-    assert(ConnectBlock(block, state, &index, view, true));
-    auto duration = timer_stop(tv_start);
-
-    // Undo alterations to global state
-    mapBlockIndex.erase(hashPrev);
-    SelectParamsFromCommandLine();
-
-    return duration;
 }
 
 extern UniValue getnewaddress(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcwallet.cpp

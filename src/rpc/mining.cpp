@@ -1,6 +1,6 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
-// Copyright (c) 2019      The Hush developers
+// Copyright (c) 2019-2020 The Hush developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -169,12 +169,11 @@ UniValue getgenerate(const UniValue& params, bool fHelp, const CPubKey& mypk)
     if (fHelp || params.size() != 0)
         throw runtime_error(
             "getgenerate\n"
-            "\nReturn if the server is set to mine and/or mint coins or not. The default is false.\n"
-            "It is set with the command line argument -gen (or komodo.conf setting gen) and -mint\n"
+            "\nReturn if the server is set to mine coins or not. The default is false.\n"
+            "It is set with the command line argument -gen (or HUSH3.conf setting gen).\n"
             "It can also be set with the setgenerate call.\n"
             "\nResult\n"
             "{\n"
-            "  \"staking\": true|false      (boolean) If staking is on or off (see setgenerate)\n"
             "  \"generate\": true|false     (boolean) If mining is on or off (see setgenerate)\n"
             "  \"numthreads\": n            (numeric) The processor limit for mining. (see setgenerate)\n"
             "}\n"
@@ -185,10 +184,6 @@ UniValue getgenerate(const UniValue& params, bool fHelp, const CPubKey& mypk)
 
     LOCK(cs_main);
     UniValue obj(UniValue::VOBJ);
-    bool staking = false;
-    if ( ASSETCHAINS_STAKED != 0 && GetBoolArg("-gen", false) && GetBoolArg("-genproclimit", -1) == 0 )
-        staking = true;
-    obj.push_back(Pair("staking",          staking));
     obj.push_back(Pair("generate",         GetBoolArg("-gen", false) && GetBoolArg("-genproclimit", -1) != 0 ));
     obj.push_back(Pair("numthreads",       (int64_t)KOMODO_MININGTHREADS));
     return obj;
@@ -329,21 +324,17 @@ UniValue setgenerate(const UniValue& params, bool fHelp, const CPubKey& mypk)
     if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
             "setgenerate generate ( genproclimit )\n"
-            "\nSet 'generate' true to turn either mining/generation or minting/staking on and false to turn both off.\n"
-            "Mining is limited to 'genproclimit' processors, -1 is unlimited, setgenerate true with 0 genproclimit turns on staking\n"
+            "\nSet 'generate' true to turn mining/generation on or false turn both off.\n"
+            "Mining is limited to 'genproclimit' processors, -1 is unlimited\n"
             "See the getgenerate call for the current setting.\n"
             "\nArguments:\n"
             "1. generate         (boolean, required) Set to true to turn on generation, off to turn off.\n"
-            "2. genproclimit     (numeric, optional) Set processor limit when generation is on. Can be -1 for unlimited, 0 to turn on staking.\n"
+            "2. genproclimit     (numeric, optional) Set processor limit when generation is on. Can be -1 for unlimited.\n"
             "\nExamples:\n"
             "\nSet the generation on with a limit of one processor\n"
             + HelpExampleCli("setgenerate", "true 1") +
-            "\nTurn minting/staking on\n"
-            + HelpExampleCli("setgenerate", "true 0") +
             "\nCheck the setting\n"
             + HelpExampleCli("getgenerate", "") +
-            "\nTurn off generation and minting\n"
-            + HelpExampleCli("setgenerate", "false") +
             "\nUsing json rpc\n"
             + HelpExampleRpc("setgenerate", "true, 1")
         );
@@ -484,8 +475,6 @@ UniValue getmininginfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
     obj.push_back(Pair("testnet",          Params().TestnetToBeDeprecatedFieldRPC()));
     obj.push_back(Pair("chain",            Params().NetworkIDString()));
 #ifdef ENABLE_MINING
-    bool staking = false;
-    obj.push_back(Pair("staking",          staking));
     obj.push_back(Pair("generate",         GetBoolArg("-gen", false) && GetBoolArg("-genproclimit", -1) != 0 ));
     obj.push_back(Pair("numthreads",       (int64_t)KOMODO_MININGTHREADS));
 #endif
@@ -857,19 +846,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp, const CPubKey& myp
       //  result.push_back(Pair("coinbasevalue", (int64_t)pblock->vtx[0].vout[0].nValue));
     //}
     result.push_back(Pair("longpollid", chainActive.LastTip()->GetBlockHash().GetHex() + i64tostr(nTransactionsUpdatedLast)));
-    if ( ASSETCHAINS_STAKED != 0 )
-    {
-        arith_uint256 POWtarget; int32_t PoSperc;
-        POWtarget = komodo_PoWtarget(&PoSperc,hashTarget,(int32_t)(pindexPrev->GetHeight()+1),ASSETCHAINS_STAKED);
-        result.push_back(Pair("target", POWtarget.GetHex()));
-        result.push_back(Pair("PoSperc", (int64_t)PoSperc));
-        result.push_back(Pair("ac_staked", (int64_t)ASSETCHAINS_STAKED));
-        result.push_back(Pair("origtarget", hashTarget.GetHex()));
-    }
-    /*else if ( ASSETCHAINS_ADAPTIVEPOW > 0 )
-        result.push_back(Pair("target",komodo_adaptivepow_target((int32_t)(pindexPrev->GetHeight()+1),hashTarget,pblock->nTime).GetHex()));*/
-    else
-        result.push_back(Pair("target", hashTarget.GetHex()));
+    result.push_back(Pair("target", hashTarget.GetHex()));
     result.push_back(Pair("mintime", (int64_t)pindexPrev->GetMedianTimePast()+1));
     result.push_back(Pair("mutable", aMutable));
     result.push_back(Pair("noncerange", "00000000ffffffff"));
@@ -1044,8 +1021,8 @@ UniValue getblocksubsidy(const UniValue& params, bool fHelp, const CPubKey& mypk
             "1. height         (numeric, optional) The block height.  If not provided, defaults to the current height of the chain.\n"
             "\nResult:\n"
             "{\n"
-            "  \"miner\" : x.xxx           (numeric) The mining reward amount in KMD.\n"
-            "  \"ac_pubkey\" : x.xxx       (numeric) The mining reward amount in KMD.\n"
+            "  \"miner\" : x.xxx           (numeric) The mining reward amount in HUSH.\n"
+            "  \"ac_pubkey\" : x.xxx       (numeric) The mining reward amount in HUSH.\n"
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("getblocksubsidy", "1000")

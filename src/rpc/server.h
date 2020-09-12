@@ -1,6 +1,6 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
-// Copyright (c) 2019      The Hush Developers
+// Copyright (c) 2019-2020 The Hush Developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -280,15 +280,6 @@ extern UniValue priceslist(const UniValue& params, bool fHelp, const CPubKey& my
 extern UniValue mypriceslist(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue pricesinfo(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue pegsaddress(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue marmaraaddress(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue marmara_poolpayout(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue marmara_receive(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue marmara_issue(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue marmara_transfer(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue marmara_info(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue marmara_creditloop(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue marmara_settlement(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue marmara_lock(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue paymentsaddress(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue payments_release(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue payments_fund(const UniValue& params, bool fHelp, const CPubKey& mypk);
@@ -411,11 +402,6 @@ extern UniValue getnetworkinfo(const UniValue& params, bool fHelp, const CPubKey
 extern UniValue getdeprecationinfo(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue setmocktime(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue resendwallettransactions(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue zc_benchmark(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue zc_raw_keygen(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue zc_raw_joinsplit(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue zc_raw_receive(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue zc_sample_joinsplit(const UniValue& params, bool fHelp, const CPubKey& mypk);
 
 extern UniValue jumblr_deposit(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue jumblr_secret(const UniValue& params, bool fHelp, const CPubKey& mypk);
@@ -490,9 +476,11 @@ extern UniValue z_exportviewingkey(const UniValue& params, bool fHelp, const CPu
 extern UniValue z_importviewingkey(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcdump.cpp
 extern UniValue z_getnewaddress(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcwallet.cpp
 extern UniValue z_listaddresses(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcwallet.cpp
+extern UniValue z_listnullifiers(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcwallet.cpp
 extern UniValue z_exportwallet(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcdump.cpp
 extern UniValue z_importwallet(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcdump.cpp
 extern UniValue z_listreceivedbyaddress(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcwallet.cpp
+extern UniValue z_listreceivedaddress(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcwallet.cpp
 extern UniValue z_getbalance(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcwallet.cpp
 extern UniValue z_gettotalbalance(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcwallet.cpp
 extern UniValue z_mergetoaddress(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcwallet.cpp
@@ -502,6 +490,7 @@ extern UniValue z_getoperationstatus(const UniValue& params, bool fHelp, const C
 extern UniValue z_getoperationresult(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcwallet.cpp
 extern UniValue z_listoperationids(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcwallet.cpp
 extern UniValue opreturn_burn(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcwallet.cpp
+extern UniValue rescan(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcwallet.cpp
 extern UniValue z_validateaddress(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcmisc.cpp
 extern UniValue z_getpaymentdisclosure(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcdisclosure.cpp
 extern UniValue z_validatepaymentdisclosure(const UniValue& params, bool fHelp, const CPubKey& mypk); // in rpcdisclosure.cpp

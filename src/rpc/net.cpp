@@ -1,6 +1,7 @@
 // Copyright (c) 2009-2014 The Bitcoin Core developers
+// Copyright (c) 2019-2020 The Hush developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or https://www.opensource.org/licenses/mit-license.php
 
 /******************************************************************************
  * Copyright © 2014-2019 The SuperNET Developers.                             *
@@ -108,7 +109,7 @@ UniValue getpeerinfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
             "    \"bytessent\": n,            (numeric) The total bytes sent\n"
             "    \"bytesrecv\": n,            (numeric) The total bytes received\n"
             "    \"conntime\": ttt,           (numeric) The connection time in seconds since epoch (Jan 1 1970 GMT)\n"
-            "    \"timeoffset\": ttt,         (numeric) The time offset in seconds\n"
+            "    \"timeoffset\": ttt,         (numeric) The time offset in seconds (deprecated, always 0)\n"
             "    \"pingtime\": n,             (numeric) ping time\n"
             "    \"pingwait\": n,             (numeric) ping wait\n"
             "    \"version\": v,              (numeric) The peer version, such as 170002\n"
@@ -151,7 +152,7 @@ UniValue getpeerinfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
         obj.push_back(Pair("bytessent", stats.nSendBytes));
         obj.push_back(Pair("bytesrecv", stats.nRecvBytes));
         obj.push_back(Pair("conntime", stats.nTimeConnected));
-        obj.push_back(Pair("timeoffset", stats.nTimeOffset));
+        obj.push_back(Pair("timeoffset", 0));
         obj.push_back(Pair("pingtime", stats.dPingTime));
         if (stats.dPingWait > 0.0)
             obj.push_back(Pair("pingwait", stats.dPingWait));
@@ -502,7 +503,7 @@ UniValue getnetworkinfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
             "  \"subversion\": \"/MagicBean:x.y.z[-v]/\",     (string) the server subversion string\n"
             "  \"protocolversion\": xxxxx,              (numeric) the protocol version\n"
             "  \"localservices\": \"xxxxxxxxxxxxxxxx\", (string) the services we offer to the network\n"
-            "  \"timeoffset\": xxxxx,                   (numeric) the time offset\n"
+            "  \"timeoffset\": xxxxx,                   (numeric) the time offset (deprecated, always 0)\n"
             "  \"connections\": xxxxx,                  (numeric) the number of connections\n"
             "  \"networks\": [                          (array) information per network\n"
             "  {\n"
@@ -536,7 +537,7 @@ UniValue getnetworkinfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
     obj.push_back(Pair("subversion",    strSubVersion));
     obj.push_back(Pair("protocolversion",PROTOCOL_VERSION));
     obj.push_back(Pair("localservices",       strprintf("%016x", nLocalServices)));
-    obj.push_back(Pair("timeoffset",    GetTimeOffset()));
+    obj.push_back(Pair("timeoffset",    0));
     obj.push_back(Pair("connections",   (int)vNodes.size()));
     obj.push_back(Pair("networks",      GetNetworksInfo()));
     obj.push_back(Pair("relayfee",      ValueFromAmount(::minRelayTxFee.GetFeePerK())));

@@ -1,5 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
+// Copyright (c) 2019-2020 The Hush developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -128,15 +129,6 @@ bool CBasicKeyStore::HaveWatchOnly() const
     return (!setWatchOnly.empty());
 }
 
-bool CBasicKeyStore::AddSproutSpendingKey(const libzcash::SproutSpendingKey &sk)
-{
-    LOCK(cs_SpendingKeyStore);
-    auto address = sk.address();
-    mapSproutSpendingKeys[address] = sk;
-    mapNoteDecryptors.insert(std::make_pair(address, ZCNoteDecryption(sk.receiving_key())));
-    return true;
-}
-
 //! Sapling 
 bool CBasicKeyStore::AddSaplingSpendingKey(
     const libzcash::SaplingExtendedSpendingKey &sk,
@@ -155,14 +147,6 @@ bool CBasicKeyStore::AddSaplingSpendingKey(
     return true;
 }
 
-bool CBasicKeyStore::AddSproutViewingKey(const libzcash::SproutViewingKey &vk)
-{
-    LOCK(cs_SpendingKeyStore);
-    auto address = vk.address();
-    mapSproutViewingKeys[address] = vk;
-    mapNoteDecryptors.insert(std::make_pair(address, ZCNoteDecryption(vk.sk_enc)));
-    return true;
-}
 
 bool CBasicKeyStore::AddSaplingFullViewingKey(
     const libzcash::SaplingFullViewingKey &fvk,
@@ -190,18 +174,7 @@ bool CBasicKeyStore::AddSaplingIncomingViewingKey(
     return true;
 }
 
-bool CBasicKeyStore::RemoveSproutViewingKey(const libzcash::SproutViewingKey &vk)
-{
-    LOCK(cs_SpendingKeyStore);
-    mapSproutViewingKeys.erase(vk.address());
-    return true;
-}
 
-bool CBasicKeyStore::HaveSproutViewingKey(const libzcash::SproutPaymentAddress &address) const
-{
-    LOCK(cs_SpendingKeyStore);
-    return mapSproutViewingKeys.count(address) > 0;
-}
 
 bool CBasicKeyStore::HaveSaplingFullViewingKey(const libzcash::SaplingIncomingViewingKey &ivk) const
 {
@@ -213,19 +186,6 @@ bool CBasicKeyStore::HaveSaplingIncomingViewingKey(const libzcash::SaplingPaymen
 {
     LOCK(cs_SpendingKeyStore);
     return mapSaplingIncomingViewingKeys.count(addr) > 0;
-}
-
-bool CBasicKeyStore::GetSproutViewingKey(
-    const libzcash::SproutPaymentAddress &address,
-    libzcash::SproutViewingKey &vkOut) const
-{
-    LOCK(cs_SpendingKeyStore);
-    SproutViewingKeyMap::const_iterator mi = mapSproutViewingKeys.find(address);
-    if (mi != mapSproutViewingKeys.end()) {
-        vkOut = mi->second;
-        return true;
-    }
-    return false;
 }
 
 bool CBasicKeyStore::GetSaplingFullViewingKey(const libzcash::SaplingIncomingViewingKey &ivk,

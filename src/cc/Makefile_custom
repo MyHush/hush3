@@ -2,6 +2,7 @@ SHELL		= /bin/sh
 CC		= gcc
 CC_DARWIN	= g++-8
 CC_WIN		= x86_64-w64-mingw32-gcc-posix
+CC_AARCH64	= aarch64-linux-gnu-g++
 CFLAGS_DARWIN	= -DBUILD_CUSTOMCC -std=c++11 -arch x86_64 -I../secp256k1/include -I../../depends/$(shell echo `../..//depends/config.guess`/include) -I../univalue/include -I../cryptoconditions/include -I../cryptoconditions/src -I../cryptoconditions/src/asn -I.. -I. -fPIC -Wl,-undefined -Wl,dynamic_lookup -Wno-write-strings -shared -dynamiclib
 CFLAGS		= -Wno-write-strings -DBUILD_CUSTOMCC -std=c++11 -I../secp256k1/include -I../../depends/$(shell echo `../..//depends/config.guess`/include) -I../univalue/include -I../cryptoconditions/include -I../cryptoconditions/src -I../cryptoconditions/src/asn -I.. -I. -fPIC -shared
 CFLAGS_WIN	= -Wno-write-strings -DBUILD_CUSTOMCC -std=c++11 -I../secp256k1/include -I../../depends/x86_64-w64-mingw32/include -I../univalue/include -I../cryptoconditions/include -I../cryptoconditions/src -I../cryptoconditions/src/asn -I.. -I. -fPIC -shared
@@ -28,6 +29,10 @@ else ifeq ($(HOST),x86_64-w64-mingw32)
 	$(CC_WIN) $(CFLAGS_WIN) $(DEBUGFLAGS) -o $(TARGET_WIN) -c $(SOURCES)
 	cp $(TARGET_WIN) ../libcc.dll
 #else ifeq ($(WIN_HOST),True) - todo: pass ENV var from build.sh if WIN host
+else ifeq ($(HOST),aarch64-linux-gnu)
+	$(info LINUX ARM 64bit )
+	$(CC_AARCH64) $(CFLAGS) $(DEBUGFLAGS) -o $(TARGET) -c $(SOURCES)
+	cp $(TARGET) ../libcc.so
 else
 	$(info LINUX)
 	$(CC) $(CFLAGS) $(DEBUGFLAGS) -o $(TARGET) -c $(SOURCES)

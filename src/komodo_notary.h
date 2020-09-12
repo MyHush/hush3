@@ -1,3 +1,4 @@
+// Copyright (c) 2019-2020      The Hush developers
 /******************************************************************************
  * Copyright © 2014-2019 The SuperNET Developers.                             *
  *                                                                            *
@@ -13,11 +14,8 @@
  *                                                                            *
  ******************************************************************************/
 
-
 #include "komodo_defs.h"
 #include "komodo_cJSON.h"
-
-
 
 #define KOMODO_MAINNET_START 178999
 #define KOMODO_NOTARIES_HEIGHT1 814000
@@ -101,15 +99,12 @@ int32_t komodo_notaries(uint8_t pubkeys[64][33],int32_t height,uint32_t timestam
     if ( is_STAKED(ASSETCHAINS_SYMBOL) == 0 )
     {
         int32_t kmd_season = 0;
-        if ( ASSETCHAINS_SYMBOL[0] == 0 )
-        {
-            // This is KMD, use block heights to determine the KMD notary season.. 
-            if ( height >= KOMODO_NOTARIES_HARDCODED )
-                kmd_season = getkmdseason(height);
-        }
-        else 
-        {
-            // This is a non LABS assetchain, use timestamp to detemine notary pubkeys. 
+        bool ishush3 = strncmp(ASSETCHAINS_SYMBOL, "HUSH3",5) == 0 ? true : false;
+        if ( ishush3 ) {
+            // This is HUSH, use block heights to determine the notary season.. 
+            kmd_season = getkmdseason(height);
+        } else {
+            // Use timestamp to detemine notary pubkeys. 
             kmd_season = getacseason(timestamp);
         }
         if ( kmd_season != 0 )
@@ -120,7 +115,7 @@ int32_t komodo_notaries(uint8_t pubkeys[64][33],int32_t height,uint32_t timestam
                     decode_hex(kmd_pubkeys[kmd_season-1][i],33,(char *)notaries_elected[kmd_season-1][i][1]);
                 if ( ASSETCHAINS_PRIVATE != 0 )
                 {
-                    // this is PIRATE, we need to populate the address array for the notary exemptions. 
+                    // we need to populate the address array for the notary exemptions. 
                     for (i = 0; i<NUM_KMD_NOTARIES; i++)
                         pubkey2addr((char *)NOTARY_ADDRESSES[kmd_season-1][i],(uint8_t *)kmd_pubkeys[kmd_season-1][i]);
                 }

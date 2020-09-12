@@ -1,3 +1,5 @@
+// Copyright (c) 2019-2020 The Hush developers
+
 #include "zcash/util.h"
 #include <algorithm>
 #include <stdexcept>

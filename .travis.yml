@@ -27,7 +27,7 @@ script:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then tar cvfz hush_linux_$TRAVIS_BRANCH.tar.gz src/komodod src/komodo-cli src/komodo-tx src/hushd src/hush-cli src/hush-tx; fi 
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ./zcutil/build-mac.sh -j 5; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then ./makeRelease.sh; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then tar cvfz hush_osx_$TRAVIS_BRANCH.tar.gz src/komodod src/komodo-cli src/libgcc_s.1.dylib src/libgomp.1.dylib src/libstdc++.6.dylib; fi 
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then tar cvfz hush_osx_$TRAVIS_BRANCH.tar.gz src/hushd src/hush-cli src/hust-tx src/komodod src/komodo-cli src/libgcc_s.1.dylib src/libgomp.1.dylib src/libstdc++.6.dylib; fi 
 notifications:
   irc:
     channels:

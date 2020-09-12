@@ -1,6 +1,6 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2015 The Bitcoin Core developers
-// Copyright (c) 2019      The Hush developers
+// Copyright (c) 2019-2020 The Hush developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -45,7 +45,10 @@
 
 #include <stdint.h>
 
+#include <boost/algorithm/string/replace.hpp>
+
 #include <boost/assign/list_of.hpp>
+#include <boost/thread.hpp>
 
 #include <univalue.h>
 
@@ -80,65 +83,6 @@ void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fInclud
         a.push_back(EncodeDestination(addr));
     }
     out.push_back(Pair("addresses", a));
-}
-
-UniValue TxJoinSplitToJSON(const CTransaction& tx) {
-    bool useGroth = tx.fOverwintered && tx.nVersion >= SAPLING_TX_VERSION;
-    UniValue vjoinsplit(UniValue::VARR);
-    for (unsigned int i = 0; i < tx.vjoinsplit.size(); i++) {
-        const JSDescription& jsdescription = tx.vjoinsplit[i];
-        UniValue joinsplit(UniValue::VOBJ);
-
-        joinsplit.push_back(Pair("vpub_old", ValueFromAmount(jsdescription.vpub_old)));
-        joinsplit.push_back(Pair("vpub_oldZat", jsdescription.vpub_old));
-        joinsplit.push_back(Pair("vpub_new", ValueFromAmount(jsdescription.vpub_new)));
-        joinsplit.push_back(Pair("vpub_newZat", jsdescription.vpub_new));
-
-        joinsplit.push_back(Pair("anchor", jsdescription.anchor.GetHex()));
-
-        {
-            UniValue nullifiers(UniValue::VARR);
-            BOOST_FOREACH(const uint256 nf, jsdescription.nullifiers) {
-                nullifiers.push_back(nf.GetHex());
-            }
-            joinsplit.push_back(Pair("nullifiers", nullifiers));
-        }
-
-        {
-            UniValue commitments(UniValue::VARR);
-            BOOST_FOREACH(const uint256 commitment, jsdescription.commitments) {
-                commitments.push_back(commitment.GetHex());
-            }
-            joinsplit.push_back(Pair("commitments", commitments));
-        }
-
-        joinsplit.push_back(Pair("onetimePubKey", jsdescription.ephemeralKey.GetHex()));
-        joinsplit.push_back(Pair("randomSeed", jsdescription.randomSeed.GetHex()));
-
-        {
-            UniValue macs(UniValue::VARR);
-            BOOST_FOREACH(const uint256 mac, jsdescription.macs) {
-                macs.push_back(mac.GetHex());
-            }
-            joinsplit.push_back(Pair("macs", macs));
-        }
-
-        CDataStream ssProof(SER_NETWORK, PROTOCOL_VERSION);
-        auto ps = SproutProofSerializer<CDataStream>(ssProof, useGroth);
-        boost::apply_visitor(ps, jsdescription.proof);
-        joinsplit.push_back(Pair("proof", HexStr(ssProof.begin(), ssProof.end())));
-
-        {
-            UniValue ciphertexts(UniValue::VARR);
-            for (const ZCNoteEncryption::Ciphertext ct : jsdescription.ciphertexts) {
-                ciphertexts.push_back(HexStr(ct.begin(), ct.end()));
-            }
-            joinsplit.push_back(Pair("ciphertexts", ciphertexts));
-        }
-
-        vjoinsplit.push_back(joinsplit);
-    }
-    return vjoinsplit;
 }
 
 uint64_t komodo_accrued_interest(int32_t *txheightp,uint32_t *locktimep,uint256 hash,int32_t n,int32_t checkheight,uint64_t checkvalue,int32_t tipheight);
@@ -306,9 +250,6 @@ void TxToJSONExpanded(const CTransaction& tx, const uint256 hashBlock, UniValue&
     }
     entry.push_back(Pair("vout", vout));
 
-    UniValue vjoinsplit = TxJoinSplitToJSON(tx);
-    entry.push_back(Pair("vjoinsplit", vjoinsplit));
-
     if (tx.fOverwintered && tx.nVersion >= SAPLING_TX_VERSION) {
         entry.push_back(Pair("valueBalance", ValueFromAmount(tx.valueBalance)));
         UniValue vspenddesc = TxShieldedSpendsToJSON(tx);
@@ -389,9 +330,6 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry)
         vout.push_back(out);
     }
     entry.push_back(Pair("vout", vout));
-
-    UniValue vjoinsplit = TxJoinSplitToJSON(tx);
-    entry.push_back(Pair("vjoinsplit", vjoinsplit));
 
     if (tx.fOverwintered && tx.nVersion >= SAPLING_TX_VERSION) {
         entry.push_back(Pair("valueBalance", ValueFromAmount(tx.valueBalance)));
@@ -475,33 +413,6 @@ UniValue getrawtransaction(const UniValue& params, bool fHelp, const CPubKey& my
             "           ,...\n"
             "         ]\n"
             "       }\n"
-            "     }\n"
-            "     ,...\n"
-            "  ],\n"
-            "  \"vjoinsplit\" : [        (array of json objects, only for version >= 2)\n"
-            "     {\n"
-            "       \"vpub_old\" : x.xxx,         (numeric) public input value in KMD\n"
-            "       \"vpub_new\" : x.xxx,         (numeric) public output value in KMD\n"
-            "       \"anchor\" : \"hex\",         (string) the anchor\n"
-            "       \"nullifiers\" : [            (json array of string)\n"
-            "         \"hex\"                     (string) input note nullifier\n"
-            "         ,...\n"
-            "       ],\n"
-            "       \"commitments\" : [           (json array of string)\n"
-            "         \"hex\"                     (string) output note commitment\n"
-            "         ,...\n"
-            "       ],\n"
-            "       \"onetimePubKey\" : \"hex\",  (string) the onetime public key used to encrypt the ciphertexts\n"
-            "       \"randomSeed\" : \"hex\",     (string) the random seed\n"
-            "       \"macs\" : [                  (json array of string)\n"
-            "         \"hex\"                     (string) input note MAC\n"
-            "         ,...\n"
-            "       ],\n"
-            "       \"proof\" : \"hex\",          (string) the zero-knowledge proof\n"
-            "       \"ciphertexts\" : [           (json array of string)\n"
-            "         \"hex\"                     (string) output note ciphertext\n"
-            "         ,...\n"
-            "       ]\n"
             "     }\n"
             "     ,...\n"
             "  ],\n"
@@ -933,33 +844,6 @@ UniValue decoderawtransaction(const UniValue& params, bool fHelp, const CPubKey&
             "     }\n"
             "     ,...\n"
             "  ],\n"
-            "  \"vjoinsplit\" : [        (array of json objects, only for version >= 2)\n"
-            "     {\n"
-            "       \"vpub_old\" : x.xxx,         (numeric) public input value in KMD\n"
-            "       \"vpub_new\" : x.xxx,         (numeric) public output value in KMD\n"
-            "       \"anchor\" : \"hex\",         (string) the anchor\n"
-            "       \"nullifiers\" : [            (json array of string)\n"
-            "         \"hex\"                     (string) input note nullifier\n"
-            "         ,...\n"
-            "       ],\n"
-            "       \"commitments\" : [           (json array of string)\n"
-            "         \"hex\"                     (string) output note commitment\n"
-            "         ,...\n"
-            "       ],\n"
-            "       \"onetimePubKey\" : \"hex\",  (string) the onetime public key used to encrypt the ciphertexts\n"
-            "       \"randomSeed\" : \"hex\",     (string) the random seed\n"
-            "       \"macs\" : [                  (json array of string)\n"
-            "         \"hex\"                     (string) input note MAC\n"
-            "         ,...\n"
-            "       ],\n"
-            "       \"proof\" : \"hex\",          (string) the zero-knowledge proof\n"
-            "       \"ciphertexts\" : [           (json array of string)\n"
-            "         \"hex\"                     (string) output note ciphertext\n"
-            "         ,...\n"
-            "       ]\n"
-            "     }\n"
-            "     ,...\n"
-            "  ],\n"
             "}\n"
 
             "\nExamples:\n"
@@ -1373,10 +1257,24 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp, const CPubKey& m
         const CCoins* existingCoins = view.AccessCoins(hashTx);
         bool fHaveMempool = mempool.exists(hashTx);
         bool fHaveChain = existingCoins && existingCoins->nHeight < 1000000000;
+
+    // If we are configured to send transactions via an
+    // external service instead of broadcasting, do that
+    std::string strCmd = GetArg("-txsend", "");
+    if (!strCmd.empty()) {
+        if (fHaveChain) {
+            throw JSONRPCError(RPC_TRANSACTION_ALREADY_IN_CHAIN, "transaction already in block chain");
+        }
+        boost::replace_all(strCmd, "%s", EncodeHexTx(tx));
+        boost::thread t(runCommand, strCmd); // thread runs free
+        // Return here so we don't add to our mempool or broadcast to peers
+        return hashTx.GetHex();
+    }
         if (!fHaveMempool && !fHaveChain) {
             // push to local node and sync with wallets
             CValidationState state;
             bool fMissingInputs;
+            LogPrintf("%s: Submitting to mempool\n", __FUNCTION__);
             if (!AcceptToMemoryPool(mempool, state, tx, false, &fMissingInputs, !fOverrideFees)) {
                 if (state.IsInvalid()) {
                     throw JSONRPCError(RPC_TRANSACTION_REJECTED, strprintf("%i: %s", state.GetRejectCode(), state.GetRejectReason()));
@@ -1390,6 +1288,7 @@ UniValue sendrawtransaction(const UniValue& params, bool fHelp, const CPubKey& m
         } else if (fHaveChain) {
             throw JSONRPCError(RPC_TRANSACTION_ALREADY_IN_CHAIN, "transaction already in block chain");
         }
+        LogPrintf("%s: Relaying raw tx to mempool\n", __FUNCTION__);
         RelayTransaction(tx);
     }
     else

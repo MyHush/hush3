@@ -1,5 +1,5 @@
 // Copyright (c) 2012-2014 The Bitcoin Core developers
-// Copyright (c) 2019      The Hush developers
+// Copyright (c) 2019-2020 The Hush developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -52,6 +52,11 @@ void CCoins::CalcMaskSize(unsigned int &nBytes, unsigned int &nNonzeroBytes) con
     nBytes += nLastUsedByte;
 }
 
+CNullifiersMap CCoinsViewCache::getNullifiers()
+{
+    return cacheSaplingNullifiers;
+}
+
 bool CCoins::Spend(uint32_t nPos) 
 {
     if (nPos >= vout.size() || vout[nPos].IsNull())
@@ -60,7 +65,6 @@ bool CCoins::Spend(uint32_t nPos)
     Cleanup();
     return true;
 }
-bool CCoinsView::GetSproutAnchorAt(const uint256 &rt, SproutMerkleTree &tree) const { return false; }
 bool CCoinsView::GetSaplingAnchorAt(const uint256 &rt, SaplingMerkleTree &tree) const { return false; }
 bool CCoinsView::GetNullifier(const uint256 &nullifier, ShieldedType type) const { return false; }
 bool CCoinsView::GetCoins(const uint256 &txid, CCoins &coins) const { return false; }
@@ -80,7 +84,6 @@ bool CCoinsView::GetStats(CCoinsStats &stats) const { return false; }
 
 CCoinsViewBacked::CCoinsViewBacked(CCoinsView *viewIn) : base(viewIn) { }
 
-bool CCoinsViewBacked::GetSproutAnchorAt(const uint256 &rt, SproutMerkleTree &tree) const { return base->GetSproutAnchorAt(rt, tree); }
 bool CCoinsViewBacked::GetSaplingAnchorAt(const uint256 &rt, SaplingMerkleTree &tree) const { return base->GetSaplingAnchorAt(rt, tree); }
 bool CCoinsViewBacked::GetNullifier(const uint256 &nullifier, ShieldedType type) const { return base->GetNullifier(nullifier, type); }
 bool CCoinsViewBacked::GetCoins(const uint256 &txid, CCoins &coins) const { return base->GetCoins(txid, coins); }
@@ -132,30 +135,6 @@ CCoinsMap::const_iterator CCoinsViewCache::FetchCoins(const uint256 &txid) const
     }
     cachedCoinsUsage += ret->second.coins.DynamicMemoryUsage();
     return ret;
-}
-
-
-bool CCoinsViewCache::GetSproutAnchorAt(const uint256 &rt, SproutMerkleTree &tree) const {
-    CAnchorsSproutMap::const_iterator it = cacheSproutAnchors.find(rt);
-    if (it != cacheSproutAnchors.end()) {
-        if (it->second.entered) {
-            tree = it->second.tree;
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    if (!base->GetSproutAnchorAt(rt, tree)) {
-        return false;
-    }
-
-    CAnchorsSproutMap::iterator ret = cacheSproutAnchors.insert(std::make_pair(rt, CAnchorsSproutCacheEntry())).first;
-    ret->second.entered = true;
-    ret->second.tree = tree;
-    cachedCoinsUsage += ret->second.tree.DynamicMemoryUsage();
-
-    return true;
 }
 
 bool CCoinsViewCache::GetSaplingAnchorAt(const uint256 &rt, SaplingMerkleTree &tree) const {
@@ -266,7 +245,6 @@ void CCoinsViewCache::BringBestAnchorIntoCache(
     SproutMerkleTree &tree
 )
 {
-    assert(GetSproutAnchorAt(currentRoot, tree));
 }
 
 template<>
@@ -334,10 +312,13 @@ void CCoinsViewCache::PopAnchor(const uint256 &newrt, ShieldedType type) {
 }
 
 void CCoinsViewCache::SetNullifiers(const CTransaction& tx, bool spent) {
+
     for (const SpendDescription &spendDescription : tx.vShieldedSpend) {
         std::pair<CNullifiersMap::iterator, bool> ret = cacheSaplingNullifiers.insert(std::make_pair(spendDescription.nullifier, CNullifiersCacheEntry()));
         ret.first->second.entered = spent;
         ret.first->second.flags |= CNullifiersCacheEntry::DIRTY;
+        if (fZdebug)
+           LogPrintf("%s: Inserted spent=%d nullifier=%s into Sapling nullifier cache\n", __FUNCTION__, spent, spendDescription.nullifier.GetHex().c_str());
     }
 }
 
@@ -428,6 +409,8 @@ void CCoinsViewCache::SetBestBlock(const uint256 &hashBlockIn) {
 
 void BatchWriteNullifiers(CNullifiersMap &mapNullifiers, CNullifiersMap &cacheNullifiers)
 {
+    //if(fZdebug)
+    //    LogPrintf("%s\n", __FUNCTION__);
     for (CNullifiersMap::iterator child_it = mapNullifiers.begin(); child_it != mapNullifiers.end();) {
         if (child_it->second.flags & CNullifiersCacheEntry::DIRTY) { // Ignore non-dirty entries (optimization).
             CNullifiersMap::iterator parent_it = cacheNullifiers.find(child_it->first);
@@ -525,10 +508,10 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
         mapCoins.erase(itOld);
     }
 
-    ::BatchWriteAnchors<CAnchorsSproutMap, CAnchorsSproutMap::iterator, CAnchorsSproutCacheEntry>(mapSproutAnchors, cacheSproutAnchors, cachedCoinsUsage);
+    //::BatchWriteAnchors<CAnchorsSproutMap, CAnchorsSproutMap::iterator, CAnchorsSproutCacheEntry>(mapSproutAnchors, cacheSproutAnchors, cachedCoinsUsage);
     ::BatchWriteAnchors<CAnchorsSaplingMap, CAnchorsSaplingMap::iterator, CAnchorsSaplingCacheEntry>(mapSaplingAnchors, cacheSaplingAnchors, cachedCoinsUsage);
 
-    ::BatchWriteNullifiers(mapSproutNullifiers, cacheSproutNullifiers);
+    //::BatchWriteNullifiers(mapSproutNullifiers, cacheSproutNullifiers);
     ::BatchWriteNullifiers(mapSaplingNullifiers, cacheSaplingNullifiers);
 
     hashSproutAnchor = hashSproutAnchorIn;
@@ -540,9 +523,9 @@ bool CCoinsViewCache::BatchWrite(CCoinsMap &mapCoins,
 bool CCoinsViewCache::Flush() {
     bool fOk = base->BatchWrite(cacheCoins, hashBlock, hashSproutAnchor, hashSaplingAnchor, cacheSproutAnchors, cacheSaplingAnchors, cacheSproutNullifiers, cacheSaplingNullifiers);
     cacheCoins.clear();
-    cacheSproutAnchors.clear();
+    //cacheSproutAnchors.clear();
     cacheSaplingAnchors.clear();
-    cacheSproutNullifiers.clear();
+    //cacheSproutNullifiers.clear();
     cacheSaplingNullifiers.clear();
     cachedCoinsUsage = 0;
     return fOk;
@@ -614,13 +597,13 @@ CAmount CCoinsViewCache::GetValueIn(int32_t nHeight,int64_t *interestp,const CTr
 }
 
 
-bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransaction& tx) const
+bool CCoinsViewCache::HaveShieldedRequirements(const CTransaction& tx) const
 {
     for (const SpendDescription &spendDescription : tx.vShieldedSpend) {
         if (GetNullifier(spendDescription.nullifier, SAPLING)) { // Prevent double spends
             LogPrintf("%s: sapling nullifier %s exists, preventing double spend\n", __FUNCTION__, spendDescription.nullifier.GetHex().c_str());
             return false;
-        }
+		}
 
         SaplingMerkleTree tree;
         if (!GetSaplingAnchorAt(spendDescription.anchor, tree)) {

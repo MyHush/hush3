@@ -1,5 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
+// Copyright (c) 2019-2020 The Hush developers
+
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -511,7 +513,7 @@ void CTxMemPool::removeConflicts(const CTransaction &tx, std::list<CTransaction>
 int32_t komodo_validate_interest(const CTransaction &tx,int32_t txheight,uint32_t nTime,int32_t dispflag);
 extern char ASSETCHAINS_SYMBOL[];
 
-void CTxMemPool::removeExpired(unsigned int nBlockHeight)
+std::vector<uint256> CTxMemPool::removeExpired(unsigned int nBlockHeight)
 {
     CBlockIndex *tipindex;
     // Remove expired txs from the mempool
@@ -521,16 +523,23 @@ void CTxMemPool::removeExpired(unsigned int nBlockHeight)
     {
         const CTransaction& tx = it->GetTx();
         tipindex = chainActive.LastTip();
-        if (IsExpiredTx(tx, nBlockHeight) || (ASSETCHAINS_SYMBOL[0] == 0 && tipindex != 0 && komodo_validate_interest(tx,tipindex->GetHeight()+1,tipindex->GetMedianTimePast() + 777,0)) < 0)
+
+        bool fInterestNotValidated = ASSETCHAINS_SYMBOL[0] == 0 && tipindex != 0 && komodo_validate_interest(tx,tipindex->GetHeight()+1,tipindex->GetMedianTimePast() + 777,0) < 0;
+        if (IsExpiredTx(tx, nBlockHeight) || fInterestNotValidated)
         {
+            if (fInterestNotValidated && tipindex != 0)
+                LogPrintf("Removing interest violate txid.%s nHeight.%d nTime.%u vs locktime.%u\n",tx.GetHash().ToString(),tipindex->GetHeight()+1,tipindex->GetMedianTimePast() + 777,tx.nLockTime);
             transactionsToRemove.push_back(tx);
         }
     }
+    std::vector<uint256> ids;
     for (const CTransaction& tx : transactionsToRemove) {
         list<CTransaction> removed;
         remove(tx, removed, true);
+        ids.push_back(tx.GetHash());
         LogPrint("mempool", "Removing expired txid: %s\n", tx.GetHash().ToString());
     }
+    return ids;
 }
 
 /**
@@ -635,8 +644,9 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
             i++;
         }
 
-        boost::unordered_map<uint256, SproutMerkleTree, CCoinsKeyHasher> intermediates;
 
+        /*
+        boost::unordered_map<uint256, SproutMerkleTree, CCoinsKeyHasher> intermediates;
         BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
             BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
                 assert(!pcoins->GetNullifier(nf, SPROUT));
@@ -657,6 +667,7 @@ void CTxMemPool::check(const CCoinsViewCache *pcoins) const
 
             intermediates.insert(std::make_pair(tree.root(), tree));
         }
+        */
         for (const SpendDescription &spendDescription : tx.vShieldedSpend) {
             SaplingMerkleTree tree;
 
@@ -842,7 +853,7 @@ bool CTxMemPool::nullifierExists(const uint256& nullifier, ShieldedType type) co
     }
 }
 
-void CTxMemPool::NotifyRecentlyAdded()
+std::pair<std::vector<CTransaction>, uint64_t> CTxMemPool::DrainRecentlyAdded()
 {
     uint64_t recentlyAddedSequence;
     std::vector<CTransaction> txs;
@@ -855,34 +866,23 @@ void CTxMemPool::NotifyRecentlyAdded()
         mapRecentlyAddedTx.clear();
     }
 
-    // A race condition can occur here between these SyncWithWallets calls, and
-    // the ones triggered by block logic (in ConnectTip and DisconnectTip). It
-    // is harmless because calling SyncWithWallets(_, NULL) does not alter the
-    // wallet transaction's block information.
-    for (auto tx : txs) {
-        try {
-            SyncWithWallets(tx, NULL);
-        } catch (const boost::thread_interrupted&) {
-            throw;
-        } catch (const std::exception& e) {
-            PrintExceptionContinue(&e, "CTxMemPool::NotifyRecentlyAdded()");
-        } catch (...) {
-            PrintExceptionContinue(NULL, "CTxMemPool::NotifyRecentlyAdded()");
-        }
-    }
+   return std::make_pair(txs, recentlyAddedSequence);
+}
 
-    // Update the notified sequence number. We only need this in regtest mode,
-    // and should not lock on cs after calling SyncWithWallets otherwise.
-    if (Params().NetworkIDString() == "regtest") {
-        LOCK(cs);
-        nNotifiedSequence = recentlyAddedSequence;
-    }
+void CTxMemPool::SetNotifiedSequence(uint64_t recentlyAddedSequence) {
+    assert(Params().NetworkIDString() == "regtest");
+    LOCK(cs);
+    nNotifiedSequence = recentlyAddedSequence;
 }
 
 bool CTxMemPool::IsFullyNotified() {
     assert(Params().NetworkIDString() == "regtest");
     LOCK(cs);
     return nRecentlyAddedSequence == nNotifiedSequence;
+}
+
+std::map<uint256, const CTransaction*> CTxMemPool::getNullifiers() {
+    return mapSaplingNullifiers;
 }
 
 CCoinsViewMemPool::CCoinsViewMemPool(CCoinsView *baseIn, CTxMemPool &mempoolIn) : CCoinsViewBacked(baseIn), mempool(mempoolIn) { }

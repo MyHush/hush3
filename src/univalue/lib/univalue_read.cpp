@@ -10,6 +10,14 @@
 
 using namespace std;
 
+/*
+ * According to stackexchange, the original json test suite wanted
+ * to limit depth to 22.  Widely-deployed PHP bails at depth 512,
+ * so we will follow PHP's lead, which should be more than sufficient
+ * (further stackexchange comments indicate depth > 32 rarely occurs).
+ */
+static const size_t MAX_JSON_DEPTH = 512;
+
 static bool json_isdigit(int ch)
 {
     return ((ch >= '0') && (ch <= '9'));
@@ -325,6 +333,10 @@ bool UniValue::read(const char *raw, size_t size)
                 stack.push_back(newTop);
             }
 
+
+            if (stack.size() > MAX_JSON_DEPTH)
+                return false;
+                
             if (utyp == VOBJ)
                 setExpect(OBJ_NAME);
             else

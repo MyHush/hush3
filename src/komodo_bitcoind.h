@@ -1,4 +1,4 @@
-// Copyright 2019 The Hush Developers
+// Copyright 2019-2020 The Hush Developers
 
 /******************************************************************************
  * Copyright © 2014-2019 The SuperNET Developers.                             *
@@ -20,10 +20,11 @@
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include "consensus/params.h"
-#include "primitives/nonce.h"
+//#include "primitives/nonce.h"
 #include "komodo_defs.h"
 #include "script/standard.h"
 #include "cc/CCinclude.h"
+#include "sietch.h"
 
 int32_t komodo_notaries(uint8_t pubkeys[64][33],int32_t height,uint32_t timestamp);
 int32_t komodo_electednotary(int32_t *numnotariesp,uint8_t *pubkey33,int32_t height,uint32_t timestamp);
@@ -32,7 +33,6 @@ bool EnsureWalletIsAvailable(bool avoidException);
 extern bool fRequestShutdown;
 extern CScript KOMODO_EARLYTXID_SCRIPTPUB;
 
-int32_t MarmaraSignature(uint8_t *utxosig,CMutableTransaction &txNew);
 uint8_t DecodeMaramaraCoinbaseOpRet(const CScript scriptPubKey,CPubKey &pk,int32_t &height,int32_t &unlockht);
 uint32_t komodo_heightstamp(int32_t height);
 
@@ -71,6 +71,7 @@ int tx_height( const uint256 &hash ){
     uint256 hashBlock;
     if (!GetTransaction(hash, tx, hashBlock, true)) {
         fprintf(stderr,"tx hash %s does not exist!\n", hash.ToString().c_str() );
+        return nHeight;
     }
 
     BlockMap::const_iterator it = mapBlockIndex.find(hashBlock);
@@ -79,6 +80,7 @@ int tx_height( const uint256 &hash ){
         //fprintf(stderr,"blockHash %s height %d\n",hashBlock.ToString().c_str(), nHeight);
     } else {
         // Unconfirmed xtns
+        fprintf(stderr,"tx %s is unconfirmed\n", hash.ToString().c_str() );
         //fprintf(stderr,"block hash %s does not exist!\n", hashBlock.ToString().c_str() );
     }
     return nHeight;
@@ -263,7 +265,7 @@ try_again:
         }
         else if ( numretries >= 1 )
         {
-            fprintf(stderr,"Maximum number of retries exceeded!\n");
+            fprintf(stderr,"%s: Maximum number of retries exceeded!\n", __FUNCTION__);
             free(s.ptr);
             return(0);
         }
@@ -700,15 +702,19 @@ bool komodo_checkopret(CBlock *pblock, CScript &merkleroot)
     return(merkleroot.IsOpReturn() && merkleroot == komodo_makeopret(pblock, false));
 }
 
-#define HUSH_HARDFORK1 (162000)
+
+extern const uint32_t nHushHardforkHeight;
 
 bool hush_hardfork_active(uint32_t time)
 {
-	// Approximately mid-day Jan 21 EST
-    return ( chainActive.Height() > HUSH_HARDFORK1);
+    //This allows simulating a different height via CLI option, with hardcoded height as default
+    uint32_t nHardForkHeight = GetArg("-hardfork-height", nHushHardforkHeight);
+    bool isactive = chainActive.Height() > nHardForkHeight;
+    if(fDebug) {
+        fprintf(stderr, "%s: active=%d at height=%d and forkheight=%d\n", __FUNCTION__, (int)isactive, chainActive.Height(), nHardForkHeight);
+    }
+    return isactive;
 }
-
-bool MarmaraPoScheck(char *destaddr,CScript opret,CTransaction staketx);
 
 int32_t komodo_isPoS(CBlock *pblock,int32_t height,bool fJustCheck)
 {
@@ -1228,69 +1234,111 @@ int32_t komodo_validate_interest(const CTransaction &tx,int32_t txheight,uint32_
 
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams);
 
+// This function defines the Hush Founders Reward (AKA Dev Tax)
+// 10% of all block rewards go towards Hush core team
+// If you do not like this, you are encouraged to fork the chain
+// or start your own Hush Smart Chain: https://github.com/myhush/hush-smart-chains
+// HUSH supply curve cannot be exactly represented via KMD AC CLI args, so we do it ourselves.
+// You specify the BR, and the FR % gets added so 10% of 12.5 is 1.25
+// but to tell the AC params, I need to say "11% of 11.25" is 1.25
+// 11% ie. 1/9th cannot be exactly represented and so the FR has tiny amounts of error unless done manually
+// Do not change this code unless you really know what you are doing.
+// Here Be Dragons! -- Duke Leto
+uint64_t hush_commission(int height)
+{
+    // TODO: Calculate new BR_END based on 75s block time!!! 2X old BR_END is a rough estimate, not exact!
+    int32_t starting_commission = 125000000, HALVING1 = GetArg("-z2zheight",340000),
+        INTERVAL = GetArg("-ac_halving1",840000), TRANSITION = 129, BR_END = 2*5422111;
+    // TODO: how many halvings will we have given new 75s blocktime?
+    int32_t commisions[] = {starting_commission, 31250000, 15625000, 78125000, 39062500, 19531250, 9765625, // these are exact
+                            4882812, 2441406, 1220703, 610351 // these have deviation from ideal BR
+                            // Just like BTC, BRs in the far future will be slightly less than
+                            // they should be because exact values are not integers, causing
+                            // slightly less coins to be actually mined
+    };
+    uint64_t commission = 0;
+
+    if( height > HALVING1) {
+        // Block time going from 150s to 75s (half) means the interval between halvings
+        // must be twice as often, i.e. 840000*2=1680000
+        // With 150s blocks, we have 210,000 blocks per year
+        // With 75s blocks,  we have 420,000 blocks per year
+        INTERVAL = GetArg("-ac_halving2",1680000);
+        fprintf(stderr,"%s: height=%d increasing interval to %d\n", __func__, height, INTERVAL);
+    }
+
+    // Transition period of 128 blocks has BR=FR=0
+    if (height < TRANSITION) {
+        commission = 0;
+    } else if (height < HALVING1) {               // before 1st Halving @ Block 340000 (Nov 2020)
+        commission = commisions[0];
+    } else if (height < HALVING1+1*INTERVAL) {    // before 2nd Halving @ Block 2020000
+        commission = commisions[1];
+    } else if (height < HALVING1+2*INTERVAL) {    // before 3rd Halving @ Block 3700000
+        commission = commisions[2];
+    } else if (height < HALVING1+3*INTERVAL) {    // before 4th Halving @ Block 5380000
+        commission =  commisions[3];
+    } else if (height < HALVING1+4*INTERVAL) {    // before 5th Halving @ Block 7060000
+        commission =  commisions[4];
+    } else if (height < HALVING1+5*INTERVAL) {    // before 6th Halving @ Block 8740000
+        commission = commisions[5];
+    } else if (height < HALVING1+6*INTERVAL) {    // before 7th Halving @ Block 10420000
+        commission = commisions[6];
+    } else if (height < HALVING1+7*INTERVAL) {    // before 8th Halving @ Block 12100000
+        // TODO: Still true??? Block reward will go to zero between 7th+8th halvings, ac_end may need adjusting
+        commission = commisions[7];
+    } else if (height < HALVING1+8*INTERVAL) {    // before 9th Halving @ Block 13780000
+        // BR should be zero before this halving happens
+        commission = commisions[8];
+    }
+    // Explicitly set the last block reward
+    // BR_END is the block with the last non-zero block reward, which overrides
+    // the -ac_end param on HUSH3
+    if(height > BR_END) {
+        fprintf(stderr,"%s: HUSH block reward has gone to zero at height %d!!! It was a good run folks\n", __func__, height);
+        commission = 0;
+    }
+    fprintf(stderr,"%s: commission=%lu,interval=%d at height %d\n", __func__, commission, INTERVAL, height);
+    return commission;
+}
+
 uint64_t komodo_commission(const CBlock *pblock,int32_t height)
 {
-    static bool didinit = false,ishush3 = false;
-    // LABS fungible chains, cannot have any block reward!
-    if ( is_STAKED(ASSETCHAINS_SYMBOL) == 2 )
-        return(0);
+    fprintf(stderr,"%s at height=%d\n",__func__,height);
+    static bool didinit = false, ishush3 = false;
 
     if (!didinit) {
         ishush3 = strncmp(ASSETCHAINS_SYMBOL, "HUSH3",5) == 0 ? true : false;
         didinit = true;
+        fprintf(stderr,"%s: didinit ishush3=%d\n", __func__, ishush3);
     }
 
     int32_t i,j,n=0,txn_count; int64_t nSubsidy; uint64_t commission,total = 0;
     if ( ASSETCHAINS_FOUNDERS != 0 )
     {
         nSubsidy = GetBlockSubsidy(height,Params().GetConsensus());
-        //fprintf(stderr,"ht.%d nSubsidy %.8f prod %llu\n",height,(double)nSubsidy/COIN,(long long)(nSubsidy * ASSETCHAINS_COMMISSION));
+        fprintf(stderr,"ht.%d nSubsidy %.8f prod %llu\n",height,(double)nSubsidy/COIN,(long long)(nSubsidy * ASSETCHAINS_COMMISSION));
         commission = ((nSubsidy * ASSETCHAINS_COMMISSION) / COIN);
 
         if (ishush3) {
-            int32_t starting_commission = 125000000, HALVING1 = 340000,  INTERVAL = 840000, TRANSITION = 129, BR_END = 5422111;
-            // HUSH supply curve cannot be exactly represented via KMD AC CLI args, so we do it ourselves.
-            // You specify the BR, and the FR % gets added so 10% of 12.5 is 1.25
-            // but to tell the AC params, I need to say "11% of 11.25" is 1.25
-            // 11% ie. 1/9th cannot be exactly represented and so the FR has tiny amounts of error unless done manually
-            // Transition period of 128 blocks has BR=FR=0
-            if (height < TRANSITION) {
-                commission = 0;
-            } else if (height < HALVING1) {
-                commission = starting_commission;
-            } else if (height < HALVING1+1*INTERVAL) {
-                commission = starting_commission / 2;
-            } else if (height < HALVING1+2*INTERVAL) {
-                commission = starting_commission / 4;
-            } else if (height < HALVING1+3*INTERVAL) {
-                commission = starting_commission / 8;
-            } else if (height < HALVING1+4*INTERVAL) {
-                commission = starting_commission / 16;
-            } else if (height < HALVING1+5*INTERVAL) {
-                commission = starting_commission / 32;
-            } else if (height < HALVING1+6*INTERVAL) { // Block 5380000
-                // Block reward will go to zero between 7th+8th halvings, ac_end may need adjusting
-                commission = starting_commission / 64;
-            } else if (height < HALVING1+7*INTERVAL) {
-                // Block reward will be zero before this is ever reached
-                commission = starting_commission / 128; // Block 6220000
-            }
+            commission = hush_commission(height);
         }
 
         if ( ASSETCHAINS_FOUNDERS > 1 )
         {
             if ( (height % ASSETCHAINS_FOUNDERS) == 0 )
             {
-                if ( ASSETCHAINS_FOUNDERS_REWARD == 0 )
+                if ( ASSETCHAINS_FOUNDERS_REWARD == 0 ) {
                     commission = commission * ASSETCHAINS_FOUNDERS;
-                else
+                } else {
                     commission = ASSETCHAINS_FOUNDERS_REWARD;
+                }
+                fprintf(stderr,"%s: set commission=%lu at height %d with\n",__func__,commission, height);
+            } else {
+                commission = 0;
             }
-            else commission = 0;
         }
-    }
-    else if ( pblock != 0 )
-    {
+    } else if ( pblock != 0 ) {
         txn_count = pblock->vtx.size();
         for (i=0; i<txn_count; i++)
         {
@@ -1529,8 +1577,8 @@ uint32_t komodo_stake(int32_t validateflag,arith_uint256 bnTarget,int32_t nHeigh
         //fprintf(stderr,"blocktime.%u -> ",blocktime);
         if ( blocktime < prevtime+3 )
             blocktime = prevtime+3;
-        if ( blocktime < GetAdjustedTime()-60 )
-            blocktime = GetAdjustedTime()+30;
+        if ( blocktime < GetTime()-60 )
+            blocktime = GetTime()+30;
         //fprintf(stderr,"blocktime.%u txtime.%u\n",blocktime,txtime);
     }
     if ( value == 0 || txtime == 0 || blocktime == 0 || prevtime == 0 )
@@ -1962,20 +2010,21 @@ void GetKomodoEarlytxidScriptPub()
 
 int64_t komodo_checkcommission(CBlock *pblock,int32_t height)
 {
+    fprintf(stderr,"%s at height=%d\n",__func__,height);
     int64_t checktoshis=0; uint8_t *script,scripthex[8192]; int32_t scriptlen,matched = 0; static bool didinit = false;
     if ( ASSETCHAINS_COMMISSION != 0 || ASSETCHAINS_FOUNDERS_REWARD != 0 )
     {
         checktoshis = komodo_commission(pblock,height);
         if ( checktoshis >= 10000 && pblock->vtx[0].vout.size() < 2 )
         {
-            //fprintf(stderr,"komodo_checkcommission vsize.%d height.%d commission %.8f\n",(int32_t)pblock->vtx[0].vout.size(),height,(double)checktoshis/COIN);
+            fprintf(stderr,"komodo_checkcommission vsize.%d height.%d commission %.8f\n",(int32_t)pblock->vtx[0].vout.size(),height,(double)checktoshis/COIN);
             return(-1);
         }
         else if ( checktoshis != 0 )
         {
             script = (uint8_t *)&pblock->vtx[0].vout[1].scriptPubKey[0];
             scriptlen = (int32_t)pblock->vtx[0].vout[1].scriptPubKey.size();
-            if ( 0 )
+            if ( 1 )
             {
                 int32_t i;
                 for (i=0; i<scriptlen; i++)

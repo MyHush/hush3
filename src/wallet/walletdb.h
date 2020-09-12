@@ -1,7 +1,8 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2013 The Bitcoin Core developers
+// Copyright (c) 2009-2013 The Hush developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or https://www.opensource.org/licenses/mit-license.php
 
 /******************************************************************************
  * Copyright © 2014-2019 The SuperNET Developers.                             *
@@ -189,6 +190,7 @@ public:
     DBErrors LoadWallet(CWallet* pwallet);
     DBErrors FindWalletTx(CWallet* pwallet, std::vector<uint256>& vTxHash, std::vector<CWalletTx>& vWtx);
     DBErrors ZapWalletTx(CWallet* pwallet, std::vector<CWalletTx>& vWtx);
+    static bool Compact(CDBEnv& dbenv, const std::string& strFile);
     static bool Recover(CDBEnv& dbenv, const std::string& filename, bool fOnlyKeys);
     static bool Recover(CDBEnv& dbenv, const std::string& filename);
 
@@ -198,22 +200,14 @@ public:
     bool WriteHDChain(const CHDChain& chain);
 
     /// Write spending key to wallet database, where key is payment address and value is spending key.
-    bool WriteZKey(const libzcash::SproutPaymentAddress& addr, const libzcash::SproutSpendingKey& key, const CKeyMetadata &keyMeta);
     bool WriteSaplingZKey(const libzcash::SaplingIncomingViewingKey &ivk,
                           const libzcash::SaplingExtendedSpendingKey &key,
                           const CKeyMetadata  &keyMeta);
     bool WriteSaplingPaymentAddress(const libzcash::SaplingPaymentAddress &addr,
                                     const libzcash::SaplingIncomingViewingKey &ivk);
-    bool WriteCryptedZKey(const libzcash::SproutPaymentAddress & addr,
-                          const libzcash::ReceivingKey & rk,
-                          const std::vector<unsigned char>& vchCryptedSecret,
-                          const CKeyMetadata &keyMeta);
     bool WriteCryptedSaplingZKey(const libzcash::SaplingExtendedFullViewingKey &extfvk,
                           const std::vector<unsigned char>& vchCryptedSecret,
                           const CKeyMetadata &keyMeta);
-
-    bool WriteSproutViewingKey(const libzcash::SproutViewingKey &vk);
-    bool EraseSproutViewingKey(const libzcash::SproutViewingKey &vk);
 
 private:
     CWalletDB(const CWalletDB&);

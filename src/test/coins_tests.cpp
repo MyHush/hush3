@@ -1,4 +1,5 @@
 // Copyright (c) 2014 The Bitcoin Core developers
+// Copyright (c) 2019-2020 The Hush developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -37,22 +38,6 @@ public:
     CCoinsViewTest() {
         hashBestSproutAnchor_ = SproutMerkleTree::empty_root();
         hashBestSaplingAnchor_ = SaplingMerkleTree::empty_root();
-    }
-
-    bool GetSproutAnchorAt(const uint256& rt, SproutMerkleTree &tree) const {
-        if (rt == SproutMerkleTree::empty_root()) {
-            SproutMerkleTree new_tree;
-            tree = new_tree;
-            return true;
-        }
-
-        std::map<uint256, SproutMerkleTree>::const_iterator it = mapSproutAnchors_.find(rt);
-        if (it == mapSproutAnchors_.end()) {
-            return false;
-        } else {
-            tree = it->second;
-            return true;
-        }
     }
 
     bool GetSaplingAnchorAt(const uint256& rt, SaplingMerkleTree &tree) const {
@@ -632,7 +617,7 @@ BOOST_AUTO_TEST_CASE(chained_joinsplits)
         CMutableTransaction mtx;
         mtx.vjoinsplit.push_back(js2);
 
-        BOOST_CHECK(!cache.HaveJoinSplitRequirements(mtx));
+        BOOST_CHECK(!cache.HaveShieldedRequirements(mtx));
     }
 
     {
@@ -642,7 +627,7 @@ BOOST_AUTO_TEST_CASE(chained_joinsplits)
         mtx.vjoinsplit.push_back(js2);
         mtx.vjoinsplit.push_back(js1);
 
-        BOOST_CHECK(!cache.HaveJoinSplitRequirements(mtx));
+        BOOST_CHECK(!cache.HaveShieldedRequirements(mtx));
     }
 
     {
@@ -650,7 +635,7 @@ BOOST_AUTO_TEST_CASE(chained_joinsplits)
         mtx.vjoinsplit.push_back(js1);
         mtx.vjoinsplit.push_back(js2);
 
-        BOOST_CHECK(cache.HaveJoinSplitRequirements(mtx));
+        BOOST_CHECK(cache.HaveShieldedRequirements(mtx));
     }
 
     {
@@ -659,7 +644,7 @@ BOOST_AUTO_TEST_CASE(chained_joinsplits)
         mtx.vjoinsplit.push_back(js2);
         mtx.vjoinsplit.push_back(js3);
 
-        BOOST_CHECK(cache.HaveJoinSplitRequirements(mtx));
+        BOOST_CHECK(cache.HaveShieldedRequirements(mtx));
     }
 
     {
@@ -669,7 +654,7 @@ BOOST_AUTO_TEST_CASE(chained_joinsplits)
         mtx.vjoinsplit.push_back(js2);
         mtx.vjoinsplit.push_back(js3);
 
-        BOOST_CHECK(cache.HaveJoinSplitRequirements(mtx));
+        BOOST_CHECK(cache.HaveShieldedRequirements(mtx));
     }
 }
 

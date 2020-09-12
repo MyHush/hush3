@@ -1,3 +1,4 @@
+// Copyright (c) 2019-2020 The Hush developers
 #ifndef BENCHMARKS_H
 #define BENCHMARKS_H
 
@@ -5,7 +6,6 @@
 #include <stdlib.h>
 
 extern double benchmark_sleep();
-extern double benchmark_parameter_loading();
 extern double benchmark_create_joinsplit();
 extern std::vector<double> benchmark_create_joinsplit_threaded(int nThreads);
 extern double benchmark_solve_equihash();

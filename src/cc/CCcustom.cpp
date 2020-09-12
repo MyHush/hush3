@@ -402,14 +402,6 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
             cp->validate = PegsValidate;
             cp->ismyvin = IsPegsInput;
             break;
-        case EVAL_MARMARA:
-            strcpy(cp->unspendableCCaddr,MarmaraCCaddr);
-            strcpy(cp->normaladdr,MarmaraNormaladdr);
-            strcpy(cp->CChexstr,MarmaraCChexstr);
-            memcpy(cp->CCpriv,MarmaraCCpriv,32);
-            cp->validate = MarmaraValidate;
-            cp->ismyvin = IsMarmaraInput;
-            break;
         case EVAL_PAYMENTS:
             strcpy(cp->unspendableCCaddr,PaymentsCCaddr);
             strcpy(cp->normaladdr,PaymentsNormaladdr);

@@ -1,6 +1,6 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
-// Copyright (c) 2019      The Hush developers
+// Copyright (c) 2019-2020 The Hush developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -500,17 +500,6 @@ static const CRPCCommand vRPCCommands[] =
     // Pegs
     { "pegs",       "pegsaddress",   &pegsaddress,      true },
 
-    // Marmara
-    { "marmara",       "marmaraaddress",   &marmaraaddress,      true },
-    { "marmara",       "marmarapoolpayout",   &marmara_poolpayout,      true },
-    { "marmara",       "marmarareceive",   &marmara_receive,      true },
-    { "marmara",       "marmaraissue",   &marmara_issue,      true },
-    { "marmara",       "marmaratransfer",   &marmara_transfer,      true },
-    { "marmara",       "marmarainfo",   &marmara_info,      true },
-    { "marmara",       "marmaracreditloop",   &marmara_creditloop,      true },
-    { "marmara",       "marmarasettlement",   &marmara_settlement,      true },
-    { "marmara",       "marmaralock",   &marmara_lock,      true },
-
     // Payments
     { "payments",       "paymentsaddress",   &paymentsaddress,       true },
     { "payments",       "paymentstxidopret", &payments_txidopret,    true },
@@ -662,12 +651,8 @@ static const CRPCCommand vRPCCommands[] =
     { "wallet",             "walletlock",             &walletlock,             true  },
     { "wallet",             "walletpassphrasechange", &walletpassphrasechange, true  },
     { "wallet",             "walletpassphrase",       &walletpassphrase,       true  },
-    { "wallet",             "zcbenchmark",            &zc_benchmark,           true  },
-    { "wallet",             "zcrawkeygen",            &zc_raw_keygen,          true  },
-    { "wallet",             "zcrawjoinsplit",         &zc_raw_joinsplit,       true  },
-    { "wallet",             "zcrawreceive",           &zc_raw_receive,         true  },
-    { "wallet",             "zcsamplejoinsplit",      &zc_sample_joinsplit,    true  },
     { "wallet",             "z_listreceivedbyaddress",&z_listreceivedbyaddress,false },
+    { "wallet",             "z_listreceivedaddress",  &z_listreceivedaddress,  false },
     { "wallet",             "z_getbalance",           &z_getbalance,           false },
     { "wallet",             "z_gettotalbalance",      &z_gettotalbalance,      false },
     { "wallet",             "z_mergetoaddress",       &z_mergetoaddress,       false },
@@ -678,17 +663,14 @@ static const CRPCCommand vRPCCommands[] =
     { "wallet",             "z_listoperationids",     &z_listoperationids,     true  },
     { "wallet",             "z_getnewaddress",        &z_getnewaddress,        true  },
     { "wallet",             "z_listaddresses",        &z_listaddresses,        true  },
+    { "wallet",             "z_listnullifiers",       &z_listnullifiers,       true  },
     { "wallet",             "z_exportkey",            &z_exportkey,            true  },
     { "wallet",             "z_importkey",            &z_importkey,            true  },
     { "wallet",             "z_exportviewingkey",     &z_exportviewingkey,     true  },
     { "wallet",             "z_importviewingkey",     &z_importviewingkey,     true  },
     { "wallet",             "z_exportwallet",         &z_exportwallet,         true  },
     { "wallet",             "z_importwallet",         &z_importwallet,         true  },
-    { "wallet",             "opreturn_burn",          &opreturn_burn,          true  },
-
-    // TODO: rearrange into another category
-    { "disclosure",         "z_getpaymentdisclosure", &z_getpaymentdisclosure, true  },
-    { "disclosure",         "z_validatepaymentdisclosure", &z_validatepaymentdisclosure, true }
+    { "wallet",             "opreturn_burn",          &opreturn_burn,          true  }
 #endif // ENABLE_WALLET
 };
 
@@ -858,19 +840,24 @@ std::string JSONRPCExecBatch(const UniValue& vReq)
 
 UniValue CRPCTable::execute(const std::string &strMethod, const UniValue &params) const
 {
-    // Return immediately if in warmup
-    {
-        LOCK(cs_rpcWarmup);
-        if (fRPCInWarmup)
-            throw JSONRPCError(RPC_IN_WARMUP, rpcWarmupStatus);
-    }
-
-    //printf("RPC call: %s\n", strMethod.c_str());
-
     // Find method
     const CRPCCommand *pcmd = tableRPC[strMethod];
     if (!pcmd)
         throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found");
+
+    // Return immediately if in warmup
+    {
+        LOCK(cs_rpcWarmup);
+        if (fRPCInWarmup) {
+            // hush-cli stop is the only valid RPC command during warmup
+            // We don't know if we have valid blocks or wallet yet, nothing else is safe
+            if (pcmd->name != "stop") {
+                throw JSONRPCError(RPC_IN_WARMUP, rpcWarmupStatus);
+            }
+        }
+    }
+
+    //printf("RPC call: %s\n", strMethod.c_str());
 
     g_rpcSignals.PreCommand(*pcmd);
 

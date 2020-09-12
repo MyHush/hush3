@@ -1,6 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
-// Copyright (c) 2019      The Hush developers
+// Copyright (c) 2019-2020 The Hush developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -121,6 +121,7 @@ using namespace std;
 map<string, string> mapArgs;
 map<string, vector<string> > mapMultiArgs;
 bool fDebug = false;
+bool fZdebug = false;
 bool fPrintToConsole = false;
 bool fPrintToDebugLog = true;
 bool fDaemon = false;

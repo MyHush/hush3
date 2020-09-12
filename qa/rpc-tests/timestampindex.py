@@ -1,19 +1,18 @@
 #!/usr/bin/env python2
 # Copyright (c) 2014-2015 The Bitcoin Core developers
-# Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
+# Copyright (c) 2019-2020 The Hush developers
+# Released under the GPLv3
 #
 # Test timestampindex generation and fetching
 #
 
 import time
 
-from test_framework.test_framework import BitcoinTestFramework
+from test_framework.test_framework import HushTestFramework
 from test_framework.util import *
 
 
-class TimestampIndexTest(BitcoinTestFramework):
+class TimestampIndexTest(HushTestFramework):
 
     def setup_chain(self):
         print("Initializing test directory "+self.options.tmpdir)

@@ -9,20 +9,21 @@ RUN apt-get -y update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-ADD ./ /komodo
-ENV HOME /komodo
-WORKDIR /komodo
+ADD ./ /hush
+ENV HOME /hush
+WORKDIR /hush
 
 # configure || true or it WILL halt
-RUN cd /komodo && \
+RUN cd /hush && \
     ./autogen.sh && \
     ./configure --with-incompatible-bdb --with-gui || true && \
     ./zcutil/build.sh -j$(nproc)
 
 # Unknown stuff goes here
 
-RUN ln -sf /komodo/src/komodod /usr/bin/komodod && \
-    ln -sf /komodo/zcutil/docker-entrypoint.sh /usr/bin/entrypoint && \
-    ln -sf /komodo/zcutil/docker-komodo-cli.sh /usr/bin/komodo-cli
+RUN ln -sf /hush/src/komodod /usr/bin/komodod && \
+    ln -sf /hush/src/hushd /usr/bin/hushd && \
+    ln -sf /hush/zcutil/docker-entrypoint.sh /usr/bin/entrypoint && \
+    ln -sf /hush/zcutil/docker-komodo-cli.sh /usr/bin/hush-cli
 
 CMD ["entrypoint"]

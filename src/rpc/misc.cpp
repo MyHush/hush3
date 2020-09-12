@@ -1,5 +1,6 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
+// Copyright (c) 2019-2020 The Hush developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -78,12 +79,12 @@ int8_t StakedNotaryID(std::string &notaryname, char *Raddress);
 uint64_t komodo_notarypayamount(int32_t nHeight, int64_t notarycount);
 int32_t komodo_notaries(uint8_t pubkeys[64][33],int32_t height,uint32_t timestamp);
 
-#define KOMODO_VERSION "0.4.0a"
+#define KOMODO_VERSION "0.5.0"
 extern uint16_t ASSETCHAINS_P2PPORT,ASSETCHAINS_RPCPORT;
 extern uint32_t ASSETCHAINS_CC;
 extern uint32_t ASSETCHAINS_MAGIC,ASSETCHAINS_ALGO;
 extern uint64_t ASSETCHAINS_COMMISSION,ASSETCHAINS_SUPPLY;
-extern int32_t ASSETCHAINS_LWMAPOS,ASSETCHAINS_SAPLING,ASSETCHAINS_STAKED;
+extern int32_t ASSETCHAINS_SAPLING;
 extern uint64_t ASSETCHAINS_ENDSUBSIDY[],ASSETCHAINS_REWARD[],ASSETCHAINS_HALVING[],ASSETCHAINS_DECAY[],ASSETCHAINS_NOTARY_PAY[];
 extern std::string NOTARY_PUBKEY,NOTARY_ADDRESS; extern uint8_t NOTARY_PUBKEY33[];
 
@@ -203,9 +204,9 @@ UniValue getinfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
             "  \"version\": xxxxx,           (numeric) the server version\n"
             "  \"protocolversion\": xxxxx,   (numeric) the protocol version\n"
             "  \"walletversion\": xxxxx,     (numeric) the wallet version\n"
-            "  \"balance\": xxxxxxx,         (numeric) the total Komodo balance of the wallet\n"
+            "  \"balance\": xxxxxxx,         (numeric) the total Hush balance of the wallet\n"
             "  \"blocks\": xxxxxx,           (numeric) the current number of blocks processed in the server\n"
-            "  \"timeoffset\": xxxxx,        (numeric) the time offset\n"
+            "  \"timeoffset\": xxxxx,        (numeric) the time offset (deprecated, always 0)\n"
             "  \"connections\": xxxxx,       (numeric) the number of connections\n"
             "  \"proxy\": \"host:port\",     (string, optional) the proxy used by the server\n"
             "  \"difficulty\": xxxxxx,       (numeric) the current difficulty\n"
@@ -285,7 +286,7 @@ UniValue getinfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
 #endif
         obj.push_back(Pair("sapling", ASSETCHAINS_SAPLING));
     }
-    obj.push_back(Pair("timeoffset",    GetTimeOffset()));
+    obj.push_back(Pair("timeoffset",    0));
     obj.push_back(Pair("connections",   (int)vNodes.size()));
     obj.push_back(Pair("proxy",         (proxy.IsValid() ? proxy.proxy.ToStringIPPort() : string())));
     obj.push_back(Pair("testnet",       Params().TestnetToBeDeprecatedFieldRPC()));
@@ -348,10 +349,6 @@ UniValue getinfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
 
         if ( ASSETCHAINS_COMMISSION != 0 )
             obj.push_back(Pair("commission",        ASSETCHAINS_COMMISSION));
-        if ( ASSETCHAINS_STAKED != 0 )
-            obj.push_back(Pair("staked",        ASSETCHAINS_STAKED));
-        if ( ASSETCHAINS_LWMAPOS != 0 )
-            obj.push_back(Pair("lwmapos", ASSETCHAINS_LWMAPOS));
         if ( ASSETCHAINS_ALGO != ASSETCHAINS_EQUIHASH )
             obj.push_back(Pair("algo",ASSETCHAINS_ALGORITHMS[ASSETCHAINS_ALGO]));
     }
@@ -424,12 +421,12 @@ UniValue coinsupply(const UniValue& params, bool fHelp, const CPubKey& mypk)
             "\nResult:\n"
             "{\n"
             "  \"result\" : \"success\",         (string) If the request was successful.\n"
-            "  \"coin\" : \"KMD\",               (string) The currency symbol of the coin for asset chains, otherwise KMD.\n"
+            "  \"coin\" : \"HUSH3\",               (string) The currency symbol of the coin for asset chains, otherwise HUSH3.\n"
             "  \"height\" : 420,               (integer) The height of this coin supply data\n"
-            "  \"supply\" : \"777.0\",           (float) The transparent coin supply\n"
-            "  \"zfunds\" : \"0.777\",           (float) The shielded coin supply (in zaddrs)\n"
-            "  \"sprout\" : \"0.077\",           (float) The sprout coin supply (in zcaddrs)\n"
-           "  \"total\" :  \"777.777\",         (float) The total coin supply, i.e. sum of supply + zfunds\n"
+            "  \"supply\" : \"555.0\",           (float) The transparent coin supply\n"
+            "  \"zfunds\" : \"0.55555\",           (float) The shielded coin supply (in zaddrs)\n"
+            "  \"sprout\" : \"0.000\",           (float) The sprout coin supply (in zcaddrs)\n"
+           "  \"total\" :  \"555.55555\",         (float) The total coin supply, i.e. sum of supply + zfunds\n"
             "}\n"
             "\nExamples:\n"
             + HelpExampleCli("coinsupply", "420")
@@ -540,14 +537,14 @@ UniValue validateaddress(const UniValue& params, bool fHelp, const CPubKey& mypk
 {
     if (fHelp || params.size() != 1)
         throw runtime_error(
-            "validateaddress \"komodoaddress\"\n"
-            "\nReturn information about the given Komodo address.\n"
+            "validateaddress \"hushaddress\"\n"
+            "\nReturn information about the given Hush address.\n"
             "\nArguments:\n"
-            "1. \"komodoaddress\"     (string, required) The Komodo address to validate\n"
+            "1. \"hushaddress\"     (string, required) The Hush address to validate\n"
             "\nResult:\n"
             "{\n"
             "  \"isvalid\" : true|false,         (boolean) If the address is valid or not. If not, this is the only property returned.\n"
-            "  \"address\" : \"komodoaddress\",   (string) The Komodo address validated\n"
+            "  \"address\" : \"hushaddress\",   (string) The Hush address validated\n"
             "  \"scriptPubKey\" : \"hex\",       (string) The hex encoded scriptPubKey generated by the address\n"
             "  \"ismine\" : true|false,          (boolean) If the address is yours or not\n"
             "  \"isscript\" : true|false,        (boolean) If the key is a script\n"
@@ -593,43 +590,6 @@ UniValue validateaddress(const UniValue& params, bool fHelp, const CPubKey& mypk
 }
 
 
-class DescribePaymentAddressVisitor : public boost::static_visitor<UniValue>
-{
-public:
-    UniValue operator()(const libzcash::InvalidEncoding &zaddr) const { return UniValue(UniValue::VOBJ); }
-
-    UniValue operator()(const libzcash::SproutPaymentAddress &zaddr) const {
-        UniValue obj(UniValue::VOBJ);
-        obj.push_back(Pair("type", "sprout"));
-        obj.push_back(Pair("payingkey", zaddr.a_pk.GetHex()));
-        obj.push_back(Pair("transmissionkey", zaddr.pk_enc.GetHex()));
-#ifdef ENABLE_WALLET
-        if (pwalletMain) {
-            obj.push_back(Pair("ismine", pwalletMain->HaveSproutSpendingKey(zaddr)));
-        }
-#endif
-        return obj;
-    }
-
-    UniValue operator()(const libzcash::SaplingPaymentAddress &zaddr) const {
-        UniValue obj(UniValue::VOBJ);
-        obj.push_back(Pair("type", "sapling"));
-        obj.push_back(Pair("diversifier", HexStr(zaddr.d)));
-        obj.push_back(Pair("diversifiedtransmissionkey", zaddr.pk_d.GetHex()));
-#ifdef ENABLE_WALLET
-        if (pwalletMain) {
-            libzcash::SaplingIncomingViewingKey ivk;
-            libzcash::SaplingFullViewingKey fvk;
-            bool isMine = pwalletMain->GetSaplingIncomingViewingKey(zaddr, ivk) &&
-                pwalletMain->GetSaplingFullViewingKey(ivk, fvk) &&
-                pwalletMain->HaveSaplingSpendingKey(fvk);
-            obj.push_back(Pair("ismine", isMine));
-        }
-#endif
-        return obj;
-    }
-};
-
 UniValue z_validateaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     if (fHelp || params.size() != 1)
@@ -642,17 +602,15 @@ UniValue z_validateaddress(const UniValue& params, bool fHelp, const CPubKey& my
             "{\n"
             "  \"isvalid\" : true|false,      (boolean) If the address is valid or not. If not, this is the only property returned.\n"
             "  \"address\" : \"zaddr\",         (string) The z address validated\n"
-            "  \"type\" : \"xxxx\",             (string) \"sprout\" or \"sapling\"\n"
+            "  \"type\" : \"xxxx\",             (string) \"sapling\"\n"
             "  \"ismine\" : true|false,       (boolean) If the address is yours or not\n"
-            "  \"payingkey\" : \"hex\",         (string) [sprout] The hex value of the paying key, a_pk\n"
-            "  \"transmissionkey\" : \"hex\",   (string) [sprout] The hex value of the transmission key, pk_enc\n"
             "  \"diversifier\" : \"hex\",       (string) [sapling] The hex value of the diversifier, d\n"
             "  \"diversifiedtransmissionkey\" : \"hex\", (string) [sapling] The hex value of pk_d\n"
 
             "}\n"
             "\nExamples:\n"
-            + HelpExampleCli("z_validateaddress", "\"zcWsmqT4X2V4jgxbgiCzyrAfRT1vi1F4sn7M5Pkh66izzw8Uk7LBGAH3DtcSMJeUb2pi3W4SQF8LMKkU2cUuVP68yAGcomL\"")
-            + HelpExampleRpc("z_validateaddress", "\"zcWsmqT4X2V4jgxbgiCzyrAfRT1vi1F4sn7M5Pkh66izzw8Uk7LBGAH3DtcSMJeUb2pi3W4SQF8LMKkU2cUuVP68yAGcomL\"")
+            + HelpExampleCli("z_validateaddress", "\"zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya\"")
+            + HelpExampleRpc("z_validateaddress", "\"zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya\"")
         );
 
 
@@ -668,11 +626,25 @@ UniValue z_validateaddress(const UniValue& params, bool fHelp, const CPubKey& my
 
     UniValue ret(UniValue::VOBJ);
     ret.push_back(Pair("isvalid", isValid));
-    if (isValid)
+    auto zaddr = boost::get<libzcash::SaplingPaymentAddress>(&address);
+    if (isValid && (zaddr != nullptr))
     {
         ret.push_back(Pair("address", strAddress));
-        UniValue detail = boost::apply_visitor(DescribePaymentAddressVisitor(), address);
-        ret.pushKVs(detail);
+        UniValue obj(UniValue::VOBJ);
+        obj.push_back(Pair("type", "sapling"));
+        obj.push_back(Pair("diversifier", HexStr(zaddr->d)));
+        obj.push_back(Pair("diversifiedtransmissionkey", zaddr->pk_d.GetHex()));
+#ifdef ENABLE_WALLET
+        if (pwalletMain) {
+            libzcash::SaplingIncomingViewingKey ivk;
+            libzcash::SaplingFullViewingKey fvk;
+            bool isMine = pwalletMain->GetSaplingIncomingViewingKey(*zaddr, ivk) &&
+                pwalletMain->GetSaplingFullViewingKey(ivk, fvk) &&
+                pwalletMain->HaveSaplingSpendingKey(fvk);
+            obj.push_back(Pair("ismine", isMine));
+        }
+#endif
+        ret.pushKVs(obj);
     }
     return ret;
 }
@@ -751,9 +723,9 @@ UniValue createmultisig(const UniValue& params, bool fHelp, const CPubKey& mypk)
 
             "\nArguments:\n"
             "1. nrequired      (numeric, required) The number of required signatures out of the n keys or addresses.\n"
-            "2. \"keys\"       (string, required) A json array of keys which are Komodo addresses or hex-encoded public keys\n"
+            "2. \"keys\"       (string, required) A json array of keys which are Hush addresses or hex-encoded public keys\n"
             "     [\n"
-            "       \"key\"    (string) Komodo address or hex-encoded public key\n"
+            "       \"key\"    (string) Hush address or hex-encoded public key\n"
             "       ,...\n"
             "     ]\n"
 
@@ -787,10 +759,10 @@ UniValue verifymessage(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     if (fHelp || params.size() != 3)
         throw runtime_error(
-            "verifymessage \"komodoaddress\" \"signature\" \"message\"\n"
+            "verifymessage \"hushaddress\" \"signature\" \"message\"\n"
             "\nVerify a signed message\n"
             "\nArguments:\n"
-            "1. \"komodoaddress\"    (string, required) The Komodo address to use for the signature.\n"
+            "1. \"hushaddress\"    (string, required) The Hush address to use for the signature.\n"
             "2. \"signature\"       (string, required) The signature provided by the signer in base 64 encoding (see signmessage).\n"
             "3. \"message\"         (string, required) The message that was signed.\n"
             "\nResult:\n"

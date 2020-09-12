@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2019 Hush developers
+# Copyright (c) 2019-2020 Hush developers
 
 # set working directory to the location of this script
 # readlink -f does not always exist
@@ -8,31 +8,41 @@ cd $DIR
 DIR="$( cd "$( dirname "$( readlink "${BASH_SOURCE[0]}" )" )" && pwd )"
 cd $DIR
 
+# Chain parameters
 NAME=HUSH3
+
 # this corresponds to FR address RHushEyeDm7XwtaTWtyCbjGQumYyV8vMjn
 SCRIPT=76a9145eb10cf64f2bab1b457f1f25e658526155928fac88ac
 
-# Chain parameters
+# First Pure Sapling Zcash Protocol chain!
+SAPLING=1
+
+# We use 3 "eras" of different supply curves
 ERAS=3
-BLOCKTIME=150
-# 6250000 - (sprout pool at block 500,000)
+
+# These values are historical and over-ridden by internals!
+# Do not change these values, change internals.
+BLOCKTIME=150 # Hush goes to 75s blocktime at Block 340K
+REWARD=0,1125000000,562500000
+HALVING=129,340000,840000
+PERC=11111111
+END=128,340000,5422111
+
+# 6250000 - (Sprout pool at block 500,000)
 SUPPLY=6178674
 FOUNDERS=1
-REWARD=0,1125000000,562500000
-PERC=11111111
-HALVING=129,340000,840000
-# NOTE: keep in sync with komodo_bitcoind.h
-END=128,340000,5422111
 CLIENTNAME=GoldenSandtrout
 NODE1=188.165.212.101 # EU
 NODE2=64.120.113.130  # AR
 NODE3=209.58.144.205  # NA
 NODE4=94.130.35.94    # EU
 CCLIB=hush3
-# First Pure Sapling Zcash Protocol chain!
-SAPLING=1
 
 # CryptoConditions/Custom Consensus params
+# CCs will effectively be turned off at Block 340K
+# since transparent outputs will not be allowed, except
+# for mining and dpow. CCs can be used on Hush Smart
+# Chains that do not define ac_private=1
 FAUCET=228
 HEIR=234
 CHANNEL=235
@@ -52,7 +62,6 @@ else
 		exit 1
     fi
 fi
-
 
 $KMD -ac_name=$NAME           \
      -ac_sapling=$SAPLING     \

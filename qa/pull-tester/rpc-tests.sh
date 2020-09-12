@@ -1,5 +1,6 @@
 #!/bin/bash
-# Copyright 2019 The Hush developers
+# Copyright (c) 2019-2020 The Hush developers
+# Released under the GPLv3
 
 set -e -o pipefail
 
@@ -16,14 +17,12 @@ testScripts=(
     'dpow.py'
     'dpowconfs.py'
     'ac_private.py'
-    'paymentdisclosure.py'
     'prioritisetransaction.py'
     'wallet_treestate.py'
     'wallet_anchorfork.py'
     'wallet_changeindicator.py'
     'wallet_import_export.py'
     'wallet_protectcoinbase.py'
-    'wallet_shieldcoinbase_sprout.py'
     'wallet_shieldcoinbase_sapling.py'
     'wallet_listreceived.py'
     'wallet_mergetoaddress.py'
@@ -64,14 +63,11 @@ testScripts=(
     'decodescript.py'
     'blockchain.py'
     'disablewallet.py'
-    'zcjoinsplit.py'
-    'zcjoinsplitdoublespend.py'
     'ivk_import_export.py'
     'zkey_import_export.py'
     'getblocktemplate.py'
     'bip65-cltv-p2p.py'
     'bipdersig-p2p.py'
-    'p2p_nu_peer_management.py'
     'rewind_index.py'
     'p2p_txexpiry_dos.py'
     'p2p_node_bloom.py'
@@ -98,10 +94,6 @@ testScriptsExt=(
 
 if [ "x$ENABLE_ZMQ" = "x1" ]; then
   testScripts+=('zmq_test.py')
-fi
-
-if [ "x$ENABLE_PROTON" = "x1" ]; then
-  testScripts+=('proton_test.py')
 fi
 
 extArg="-extended"

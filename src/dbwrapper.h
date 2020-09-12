@@ -1,4 +1,5 @@
 // Copyright (c) 2012-2014 The Bitcoin Core developers
+// Copyright (c) 2019      The Hush developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -143,6 +144,7 @@ public:
             CDataStream ssValue(slValue.data(), slValue.data() + slValue.size(), SER_DISK, CLIENT_VERSION);
             ssValue >> value;
         } catch(std::exception &e) {
+            LogPrintf("%s: CDataStream error - %s\n", __FUNCTION__, e.what());
             return false;
         }
         return true;
@@ -207,7 +209,8 @@ public:
         try {
             CDataStream ssValue(strValue.data(), strValue.data() + strValue.size(), SER_DISK, CLIENT_VERSION);
             ssValue >> value;
-        } catch (const std::exception&) {
+        } catch (const std::exception &e) {
+            LogPrintf("%s: CDataStream error - %s\n", __FUNCTION__, e.what());
             return false;
         }
         return true;

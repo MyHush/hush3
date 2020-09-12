@@ -1,5 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
+// Copyright (c) 2019-2020 The Hush developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -43,9 +44,15 @@
 #include "zcash/Zcash.h"
 #include "zcash/JoinSplit.hpp"
 #include "zcash/Proof.hpp"
+#include "zcash/Note.hpp"
 
 extern uint32_t ASSETCHAINS_MAGIC;
 extern std::string ASSETCHAINS_SELFIMPORT;
+
+#define JOINSPLIT_SIZE GetSerializeSize(JSDescription(), SER_NETWORK, PROTOCOL_VERSION)
+#define OUTPUTDESCRIPTION_SIZE GetSerializeSize(OutputDescription(), SER_NETWORK, PROTOCOL_VERSION)
+#define SPENDDESCRIPTION_SIZE GetSerializeSize(SpendDescription(), SER_NETWORK, PROTOCOL_VERSION)
+
 
 // Overwinter transaction version
 static const int32_t OVERWINTER_TX_VERSION = 3;
@@ -251,7 +258,6 @@ public:
     JSDescription(): vpub_old(0), vpub_new(0) { }
 
     JSDescription(
-            bool makeGrothProof,
             ZCJoinSplit& params,
             const uint256& joinSplitPubKey,
             const uint256& rt,
@@ -264,7 +270,6 @@ public:
     );
 
     static JSDescription Randomized(
-            bool makeGrothProof,
             ZCJoinSplit& params,
             const uint256& joinSplitPubKey,
             const uint256& rt,

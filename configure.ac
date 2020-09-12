@@ -1,13 +1,13 @@
 dnl require autoconf 2.60 (AS_ECHO/AS_ECHO_N)
 AC_PREREQ([2.60])
 define(_CLIENT_VERSION_MAJOR, 3)
-define(_CLIENT_VERSION_MINOR, 3)
+define(_CLIENT_VERSION_MINOR, 5)
 define(_CLIENT_VERSION_REVISION, 0)
-define(_CLIENT_VERSION_BUILD, 50)
+define(_CLIENT_VERSION_BUILD, 5)
 define(_ZC_BUILD_VAL, m4_if(m4_eval(_CLIENT_VERSION_BUILD < 25), 1, m4_incr(_CLIENT_VERSION_BUILD), m4_eval(_CLIENT_VERSION_BUILD < 50), 1, m4_eval(_CLIENT_VERSION_BUILD - 24), m4_eval(_CLIENT_VERSION_BUILD == 50), 1, , m4_eval(_CLIENT_VERSION_BUILD - 50)))
 define(_CLIENT_VERSION_SUFFIX, m4_if(m4_eval(_CLIENT_VERSION_BUILD < 25), 1, _CLIENT_VERSION_REVISION-beta$1, m4_eval(_CLIENT_VERSION_BUILD < 50), 1, _CLIENT_VERSION_REVISION-rc$1, m4_eval(_CLIENT_VERSION_BUILD == 50), 1, _CLIENT_VERSION_REVISION, _CLIENT_VERSION_REVISION-$1)))
 define(_CLIENT_VERSION_IS_RELEASE, true)
-define(_COPYRIGHT_YEAR, 2019)
+define(_COPYRIGHT_YEAR, 2020)
 AC_INIT([Hush],[_CLIENT_VERSION_MAJOR._CLIENT_VERSION_MINOR._CLIENT_VERSION_SUFFIX(_ZC_BUILD_VAL)],[https://github.com/MyHush/hush3],[hush])
 AC_CONFIG_SRCDIR([src/main.cpp])
 AC_CONFIG_HEADERS([src/config/bitcoin-config.h])
@@ -95,12 +95,6 @@ AC_ARG_ENABLE([mining],
   [enable mining (default is yes)])],
   [enable_mining=$enableval],
   [enable_mining=yes])
-
-AC_ARG_ENABLE([proton],
-  [AS_HELP_STRING([--disable-proton],
-  [disable Proton (AMQP messaging)])],
-  [use_proton=$enableval],
-  [use_proton=yes])
 
 AC_ARG_ENABLE(tests,
     AS_HELP_STRING([--enable-tests],[compile tests (default is yes)]),
@@ -507,15 +501,24 @@ if test x$use_hardening != xno; then
     HARDENED_CPPFLAGS="$HARDENED_CPPFLAGS -D_FORTIFY_SOURCE=2"
   ],[AC_MSG_ERROR(Cannot enable -D_FORTIFY_SOURCE=2)])
 
-  #AX_CHECK_LINK_FLAG([[-Wl,-z,relro]], [HARDENED_LDFLAGS="$HARDENED_LDFLAGS -Wl,-z,relro"],[AC_MSG_ERROR(Cannot enable RELRO)])
-  #AX_CHECK_LINK_FLAG([[-Wl,-z,now]], [HARDENED_LDFLAGS="$HARDENED_LDFLAGS -Wl,-z,now"],[AC_MSG_ERROR(Cannot enable BIND_NOW)])
+  if test x$BUILD_OS = xdarwin || test x$TARGET_OS = xwindows; then
+    # Xcode's ld (at least ld64-302.3) doesn't support -z
+    # mingw-w64's ld (at least mingw-w64 4.0.4-2) also appears to not support -z
+    AX_CHECK_LINK_FLAG([[-Wl,-z,relro]], [HARDENED_LDFLAGS="$HARDENED_LDFLAGS -Wl,-z,relro"],[AC_MSG_WARN(Cannot enable RELRO)])
+    AX_CHECK_LINK_FLAG([[-Wl,-z,now]], [HARDENED_LDFLAGS="$HARDENED_LDFLAGS -Wl,-z,now"],[AC_MSG_WARN(Cannot enable BIND_NOW)])
+  else
+    AX_CHECK_LINK_FLAG([[-Wl,-z,relro]], [HARDENED_LDFLAGS="$HARDENED_LDFLAGS -Wl,-z,relro"],[AC_MSG_ERROR(Cannot enable RELRO)])
+    AX_CHECK_LINK_FLAG([[-Wl,-z,now]], [HARDENED_LDFLAGS="$HARDENED_LDFLAGS -Wl,-z,now"],[AC_MSG_ERROR(Cannot enable BIND_NOW)])
+  fi
 
   if test x$TARGET_OS != xwindows; then
     # All windows code is PIC, forcing it on just adds useless compile warnings
-    AX_CHECK_LINK_FLAG([[-Wl,-z,relro]], [HARDENED_LDFLAGS="$HARDENED_LDFLAGS -Wl,-z,relro"],[AC_MSG_ERROR(Cannot enable RELRO)])
-    AX_CHECK_LINK_FLAG([[-Wl,-z,now]], [HARDENED_LDFLAGS="$HARDENED_LDFLAGS -Wl,-z,now"],[AC_MSG_ERROR(Cannot enable BIND_NOW)])
-    AX_CHECK_COMPILE_FLAG([-fPIE],[HARDENED_CXXFLAGS="$HARDENED_CXXFLAGS -fPIE"],[AC_MSG_ERROR(Cannot enable -fPIE)])
-    AX_CHECK_LINK_FLAG([[-pie]], [HARDENED_LDFLAGS="$HARDENED_LDFLAGS -pie"],[AC_MSG_ERROR(Cannot enable -pie)])
+    AX_CHECK_COMPILE_FLAG([-fPIE],[PIE_FLAGS="-fPIE"],[AC_MSG_ERROR(Cannot enable -fPIE)])
+    if test x$BUILD_OS = xdarwin; then
+      AX_CHECK_LINK_FLAG([[-Wl,-pie]], [HARDENED_LDFLAGS="$HARDENED_LDFLAGS -Wl,-pie"],[AC_MSG_ERROR(Cannot enable -Wl,-pie)])
+    else
+      AX_CHECK_LINK_FLAG([[-pie]], [HARDENED_LDFLAGS="$HARDENED_LDFLAGS -pie"],[AC_MSG_ERROR(Cannot enable -pie)])
+    fi
   else
     # These are only available on Windows.
     AX_CHECK_LINK_FLAG([[-Wl,--dynamicbase]], [HARDENED_LDFLAGS="$HARDENED_LDFLAGS -Wl,--dynamicbase"],[AC_MSG_ERROR(Cannot enable --dynamicbase)])
@@ -594,23 +597,6 @@ AC_SUBST(LIBMEMENV)
 if test x$enable_wallet != xno; then
     dnl Check for libdb_cxx only if wallet enabled
     BITCOIN_FIND_BDB62
-fi
-
-dnl Check Qpid Proton headers and library exist
-if test x$use_proton = xyes; then
-  AC_CHECK_HEADERS([proton/connection.hpp],
-    [],
-    [AC_MSG_WARN([Proton headers not found, disabling Proton support])
-    use_proton=no])
- AC_CHECK_LIB([qpid-proton-cpp], [main],
-    [PROTON_LIBS="-lqpid-proton-cpp -lqpid-proton"],
-    [AC_MSG_WARN([Proton libraries not found, disabling Proton support])
-    use_proton=no])
-fi
-if test x$use_proton = xyes; then
-    AC_DEFINE(ENABLE_PROTON, 1, [Define to 1 to enable Proton functions])
-else
-    AC_DEFINE(ENABLE_PROTON, 0, [Define to 1 to enable Proton functions])
 fi
 
 if test x$build_bitcoin_utils$build_bitcoind$use_tests = xnonono; then
@@ -700,7 +686,7 @@ if test x$use_pkgconfig = xyes; then
   )
 else
   # BUG: Fix this:
-  echo 'BUG: configure does not yet check for the following dependencies if pkg-config is not on the system: libcrypto++, libgmp'
+  echo 'BUG: configure does not yet check for the following dependencies if pkg-config is not on the system: libcrypto++, gmp'
 
   AC_CHECK_HEADER([openssl/crypto.h],,AC_MSG_ERROR(libcrypto headers missing))
   AC_CHECK_LIB([crypto],      [main],CRYPTO_LIBS=-lcrypto, AC_MSG_ERROR(libcrypto missing))
@@ -715,6 +701,22 @@ else
       AC_CHECK_LIB([event_pthreads],[main],EVENT_PTHREADS_LIBS=-levent_pthreads,AC_MSG_ERROR(libevent_pthreads missing))
     fi
   fi
+
+# These packages don't provide pkgconfig config files across all
+# platforms, so we use older autoconf detection mechanisms:
+if test x$TARGET_OS = xdarwin; then
+AC_CHECK_HEADER([gmp.h],,AC_MSG_ERROR(libgmp headers missing))
+AC_CHECK_LIB([gmp],[[__gmpn_sub_n]],GMP_LIBS=-lgmp, [AC_MSG_ERROR(libgmp missing)])
+
+AC_CHECK_HEADER([gmpxx.h],,AC_MSG_ERROR(libgmpxx headers missing))
+AC_CHECK_LIB([gmpxx],[main],GMPXX_LIBS=-lgmpxx, [AC_MSG_ERROR(libgmpxx missing)])
+fi
+
+#AC_CHECK_HEADER([gmp.h],,AC_MSG_ERROR(libgmp headers missing))
+#AC_CHECK_LIB([gmp],[[__gmpn_sub_n]],GMP_LIBS=-lgmp, [AC_MSG_ERROR(libgmp missing)])
+
+#AC_CHECK_HEADER([gmpxx.h],,AC_MSG_ERROR(libgmpxx headers missing))
+#AC_CHECK_LIB([gmpxx],[main],GMPXX_LIBS=-lgmpxx, [AC_MSG_ERROR(libgmpxx missing)])
 
   if test "x$use_zmq" = "xyes"; then
      AC_CHECK_HEADER([zmq.h],
@@ -742,40 +744,11 @@ fi
 
 # These packages don't provide pkgconfig config files across all
 # platforms, so we use older autoconf detection mechanisms:
-if test x$TARGET_OS = xdarwin; then
 AC_CHECK_HEADER([gmp.h],,AC_MSG_ERROR(libgmp headers missing))
 AC_CHECK_LIB([gmp],[[__gmpn_sub_n]],GMP_LIBS=-lgmp, [AC_MSG_ERROR(libgmp missing)])
 
 AC_CHECK_HEADER([gmpxx.h],,AC_MSG_ERROR(libgmpxx headers missing))
 AC_CHECK_LIB([gmpxx],[main],GMPXX_LIBS=-lgmpxx, [AC_MSG_ERROR(libgmpxx missing)])
-fi
-
-#AC_CHECK_HEADER([gmp.h],,AC_MSG_ERROR(libgmp headers missing))
-#AC_CHECK_LIB([gmp],[[__gmpn_sub_n]],GMP_LIBS=-lgmp, [AC_MSG_ERROR(libgmp missing)])
-
-#AC_CHECK_HEADER([gmpxx.h],,AC_MSG_ERROR(libgmpxx headers missing))
-#AC_CHECK_LIB([gmpxx],[main],GMPXX_LIBS=-lgmpxx, [AC_MSG_ERROR(libgmpxx missing)])
-
-# libsnark header layout is broken unless cpp's -I is passed with the
-# libsnark directory, so for now we use this hideous workaround:
-echo 'Hunting for libsnark include directory...'
-[LIBSNARK_INCDIR="$(echo "$CPPFLAGS" | sed 's,^.*-I\([^ ]*/include\).*$,\1/libsnark,')"]
-if test -d "$LIBSNARK_INCDIR"; then
-   echo "Found libsnark include directory: $LIBSNARK_INCDIR"
-else
-#AC_MSG_ERROR(libsnark include directory not found)
-echo "libsnark include directory not found ($LIBSNARK_INCDIR)"
-fi
-
-CPPFLAGS="-I$LIBSNARK_INCDIR $CPPFLAGS"
-
-# Now check for libsnark compilability using traditional autoconf tests:
-if test x$TARGET_OS = xdarwin; then
-AC_CHECK_HEADER([libsnark/gadgetlib1/gadget.hpp],,AC_MSG_ERROR(libsnark headers missing))
-AC_CHECK_LIB([snark],[main],LIBSNARK_LIBS=-lsnark, [AC_MSG_ERROR(libsnark missing)], [-lgmpxx])
-fi
-#AC_CHECK_HEADER([libsnark/gadgetlib1/gadget.hpp],,AC_MSG_ERROR(libsnark headers missing))
-#AC_CHECK_LIB([snark],[main],LIBSNARK_LIBS=-lsnark, [AC_MSG_ERROR(libsnark missing)], [-lgmpxx])
 
 RUST_LIBS="-lrustzcash"
 case $host in
@@ -786,25 +759,7 @@ case $host in
     ;;
 esac
 
-dnl Check for OpenMP support
-AX_OPENMP(
-  [AC_DEFINE(HAVE_OPENMP, 1, [Define if OpenMP is enabled])
-   AM_CONDITIONAL([HAVE_OPENMP], [true])
-   CPPFLAGS="$CPPFLAGS -DMULTICORE"
-   CXXFLAGS="$CXXFLAGS $OPENMP_CXXFLAGS"],
-  [AC_MSG_WARN([OpenMP not supported, disabling multithreading])
-   AC_DEFINE(HAVE_OPENMP, 0, [Define if OpenMP is enabled])
-   AM_CONDITIONAL([HAVE_OPENMP], [false])])
-
-# Gitian uses a config.site that sets depends_prefix, and then sets --prefix=/
-# build.sh just uses --prefix
-if test x$depends_prefix != x; then
-  LIBSNARK_DEPINST="$depends_prefix"
-else
-  LIBSNARK_DEPINST="$prefix"
-fi
-
-# Additional Zcash flags
+# Additional Zcash internals flags
 AX_CHECK_COMPILE_FLAG([-fwrapv],[CXXFLAGS="$CXXFLAGS -fwrapv"])
 AX_CHECK_COMPILE_FLAG([-fno-strict-aliasing],[CXXFLAGS="$CXXFLAGS -fno-strict-aliasing"])
 AX_CHECK_COMPILE_FLAG([-Wno-builtin-declaration-mismatch],[CXXFLAGS="$CXXFLAGS -Wno-builtin-declaration-mismatch"],,[[$CXXFLAG_WERROR]])
@@ -870,8 +825,6 @@ else
 fi
 
 AM_CONDITIONAL([ENABLE_ZMQ], [test "x$use_zmq" = "xyes"])
-
-AM_CONDITIONAL([ENABLE_PROTON], [test "x$use_proton" = "xyes"])
 
 AC_MSG_CHECKING([whether to build test_bitcoin])
 if test x$use_tests = xyes; then
@@ -944,9 +897,7 @@ AC_SUBST(EVENT_PTHREADS_LIBS)
 AC_SUBST(ZMQ_LIBS)
 AC_SUBST(GMP_LIBS)
 AC_SUBST(GMPXX_LIBS)
-AC_SUBST(LIBSNARK_DEPINST)
 AC_SUBST(LIBZCASH_LIBS)
-AC_SUBST(PROTON_LIBS)
 AC_CONFIG_FILES([Makefile src/Makefile doc/man/Makefile src/test/buildenv.py])
 AC_CONFIG_FILES([qa/pull-tester/run-bitcoind-for-test.sh],[chmod +x qa/pull-tester/run-bitcoind-for-test.sh])
 AC_CONFIG_FILES([qa/pull-tester/tests-config.sh],[chmod +x qa/pull-tester/tests-config.sh])
@@ -975,7 +926,7 @@ unset PKG_CONFIG_LIBDIR
 PKG_CONFIG_LIBDIR="$PKGCONFIG_LIBDIR_TEMP"
 
 ac_configure_args="${ac_configure_args} --disable-shared --with-pic --with-bignum=no --enable-module-recovery"
-AC_CONFIG_SUBDIRS([src/secp256k1 src/snark src/univalue src/cryptoconditions])
+AC_CONFIG_SUBDIRS([src/secp256k1 src/univalue src/cryptoconditions])
 
 AC_OUTPUT
 
@@ -993,7 +944,6 @@ esac
 echo 
 echo "Options used to compile and link:"
 echo "  with wallet   = $enable_wallet"
-echo "  with proton   = $use_proton"
 echo "  with zmq      = $use_zmq"
 echo "  with test     = $use_tests"
 echo "  debug enabled = $enable_debug"

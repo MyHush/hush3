@@ -25,14 +25,8 @@ sometimes introduce weird bugs or make compiling really annoying.
 
 Switching branches and doing partial compiles in Komodo/Hush source code
 can introduce weird bugs, which are fixed by running `build.sh` again.
-When in doubt, if you run into a compile error, especially if it mentions
-`OCTET_STRING`, run `build.sh` again. Running `make clean` before switching
-branches can often prevent those problems.
-
-```
-cryptoconditions/src/asn/SimpleSha256Condition.h:14:10: fatal error: OCTET_STRING.h: No such file or directory
-```
-
+Additionally, it's a good idea to run `make clean` before you switch
+between branches.
 
 ## Partial compiles
 
@@ -60,3 +54,7 @@ After successfully compiling Hush, you can generate a debian package of these bi
 This command will not work on Mac OS X. Currently  you cannot generate a Debian package
 from operating systems other than Linux.
 
+
+## Updates to this document
+
+If you think something else should be in this guide, please send your suggestions!

@@ -1,6 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
-// Copyright (c) 2019      The Hush developers
+// Copyright (c) 2019-2020 The Hush developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -372,9 +372,6 @@ struct CCoinsStats
 class CCoinsView
 {
 public:
-    //! Retrieve the tree (Sprout) at a particular anchored root in the chain
-    virtual bool GetSproutAnchorAt(const uint256 &rt, SproutMerkleTree &tree) const;
-
     //! Retrieve the tree (Sapling) at a particular anchored root in the chain
     virtual bool GetSaplingAnchorAt(const uint256 &rt, SaplingMerkleTree &tree) const;
 
@@ -421,7 +418,6 @@ protected:
 
 public:
     CCoinsViewBacked(CCoinsView *viewIn);
-    bool GetSproutAnchorAt(const uint256 &rt, SproutMerkleTree &tree) const;
     bool GetSaplingAnchorAt(const uint256 &rt, SaplingMerkleTree &tree) const;
     bool GetNullifier(const uint256 &nullifier, ShieldedType type) const;
     bool GetCoins(const uint256 &txid, CCoins &coins) const;
@@ -490,9 +486,9 @@ public:
     CCoinsViewCache(CCoinsView *baseIn);
     ~CCoinsViewCache();
 
+    CNullifiersMap getNullifiers();
+
     // Standard CCoinsView methods
-    //static CLaunchMap &LaunchMap() { return launchMap; }
-    bool GetSproutAnchorAt(const uint256 &rt, SproutMerkleTree &tree) const;
     bool GetSaplingAnchorAt(const uint256 &rt, SaplingMerkleTree &tree) const;
     bool GetNullifier(const uint256 &nullifier, ShieldedType type) const;
     bool GetCoins(const uint256 &txid, CCoins &coins) const;
@@ -549,7 +545,7 @@ public:
     size_t DynamicMemoryUsage() const;
 
     /** 
-     * Amount of bitcoins coming in to a transaction
+     * Amount of HUSH coming in to a transaction
      * Note that lightweight clients may not know anything besides the hash of previous transactions,
      * so may not be able to calculate this.
      *
@@ -561,8 +557,8 @@ public:
     //! Check whether all prevouts of the transaction are present in the UTXO set represented by this view
     bool HaveInputs(const CTransaction& tx) const;
 
-    //! Check whether all joinsplit requirements (anchors/nullifiers) are satisfied
-    bool HaveJoinSplitRequirements(const CTransaction& tx) const;
+    //! Check whether all shielded requirements (anchors/nullifiers) are satisfied
+    bool HaveShieldedRequirements(const CTransaction& tx) const;
 
     //! Return priority of tx at height nHeight
     double GetPriority(const CTransaction &tx, int nHeight) const;

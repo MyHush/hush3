@@ -1,4 +1,6 @@
 #!/usr/bin/env python2
+# Copyright (c) 2019-2020 The Hush developers
+# Released under the GPLv3
 import inspect
 import os
 

@@ -1,4 +1,5 @@
 // Copyright (c) 2009-2014 The Bitcoin Core developers
+// Copyright (c) 2019-2020 The Hush developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -74,7 +75,7 @@ namespace Checkpoints {
             fWorkAfter = nExpensiveAfter*fSigcheckVerificationFactor;
         }
 
-        return fWorkBefore / (fWorkBefore + fWorkAfter);
+        return std::min(fWorkBefore / (fWorkBefore + fWorkAfter), 1.0);
     }
 
     int GetTotalBlocksEstimate(const CChainParams::CCheckpointData& data)

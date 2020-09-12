@@ -1714,7 +1714,9 @@ OCTET_STRING_free(asn_TYPE_descriptor_t *td, void *sptr, int contents_only) {
 	OCTET_STRING_t *st = (OCTET_STRING_t *)sptr;
 	asn_OCTET_STRING_specifics_t *specs;
 	asn_struct_ctx_t *ctx;
+#if !defined(__aarch64__)
 	struct _stack *stck;
+#endif
 
 	if(!td || !st)
 		return;
@@ -1731,6 +1733,15 @@ OCTET_STRING_free(asn_TYPE_descriptor_t *td, void *sptr, int contents_only) {
 		st->buf = 0;
 	}
 
+/* Attention !!!
+ * this is quick & dirty workaround for memory corruption bug on aarch64-linux-gnu
+ * - downside: allows memory leakage
+ * - issue description: On Raspberry Pi 4 @ 64bit linux, daemon crashes with "free(): invalid pointer" error
+ * - probable cause: misaligned memory access to nested structs containing pointers
+ * - TODO: use the latest asn1c compiler on CryptoConditions.asn, maybe generate cpp instead of c code... investigation in progress
+ */
+
+#if !defined(__aarch64__)
 	/*
 	 * Remove decode-time stack.
 	 */
@@ -1747,6 +1758,7 @@ OCTET_STRING_free(asn_TYPE_descriptor_t *td, void *sptr, int contents_only) {
 	if(!contents_only) {
 		FREEMEM(st);
 	}
+#endif
 }
 
 /*

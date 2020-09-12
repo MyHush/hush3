@@ -1,3 +1,4 @@
+// Copyright (c) 2019-2020 The Hush developers
 /******************************************************************************
  * Copyright © 2014-2019 The SuperNET Developers.                             *
  *                                                                            *
@@ -44,11 +45,8 @@ static unsigned long preimageCost(const CC *cond) {
 }
 
 
-static unsigned char *preimageFingerprint(const CC *cond) {
-    unsigned char *hash = calloc(1, 32);
-    //fprintf(stderr,"preimage %p %p\n",hash,cond->preimage);
-    sha256(cond->preimage, cond->preimageLength, hash);
-    return hash;
+static void preimageFingerprint(const CC *cond, uint8_t *out) {
+    sha256(cond->preimage, cond->preimageLength, out);
 }
 
 

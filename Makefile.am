@@ -245,7 +245,7 @@ endif
 dist_bin_SCRIPTS = zcutil/fetch-params.sh
 dist_noinst_SCRIPTS = autogen.sh zcutil/build-debian-package.sh zcutil/build.sh
 
-EXTRA_DIST = $(top_srcdir)/share/genbuild.sh qa/pull-tester/rpc-tests.sh qa/pull-tester/run-bitcoin-cli qa/rpc-tests qa/zcash $(DIST_DOCS) $(BIN_CHECKS)
+EXTRA_DIST = $(top_srcdir)/share/genbuild.sh qa/pull-tester/rpc-tests.sh qa/pull-tester/run-bitcoin-cli qa/rpc-tests qa/hush $(DIST_DOCS) $(BIN_CHECKS)
 
 install-exec-hook:
 	echo "We no longer install fetch-params!"

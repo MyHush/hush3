@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2019-2020 The Hush developers
+# Released under the GPLv3
 
 # This is a thin wrapper around bitcoin-cli that strips the Windows-style EOLs
 # from the output if present. It is necessary when using bitcoin-cli.exe on

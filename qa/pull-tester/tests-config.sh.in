@@ -1,7 +1,8 @@
 #!/bin/bash
+# THIS FILE IS GENERATED FROM tests-config.sh.in
 # Copyright (c) 2013-2014 The Bitcoin Core developers
-# Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
+# Copyright (c) 2019-2020 The Hush developers
+# Released under the GPLv3
 
 BUILDDIR="@abs_top_builddir@"
 EXEEXT="@EXEEXT@"
@@ -13,6 +14,6 @@ EXEEXT="@EXEEXT@"
 @ENABLE_ZMQ_TRUE@ENABLE_ZMQ=1
 @ENABLE_PROTON_TRUE@ENABLE_PROTON=1
 
-REAL_BITCOIND="$BUILDDIR/src/komodod${EXEEXT}"
-REAL_BITCOINCLI="$BUILDDIR/src/komodo-cli${EXEEXT}"
+REAL_BITCOIND="$BUILDDIR/src/hushd${EXEEXT}"
+REAL_BITCOINCLI="$BUILDDIR/src/hush-cli${EXEEXT}"
 

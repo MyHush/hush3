@@ -1,5 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
+// Copyright (c) 2019-2020 The Hush developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -200,6 +201,7 @@ public:
      * all inputs are in the mapNextTx array). If sanity-checking is turned off,
      * check does nothing.
      */
+    std::map<uint256, const CTransaction*> getNullifiers();
     void check(const CCoinsViewCache *pcoins) const;
     void setSanityCheck(double dFrequency = 1.0) { nCheckFrequency = static_cast<uint32_t>(dFrequency * 4294967295.0); }
 
@@ -216,7 +218,7 @@ public:
     void removeWithAnchor(const uint256 &invalidRoot, ShieldedType type);
     void removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, int flags);
     void removeConflicts(const CTransaction &tx, std::list<CTransaction>& removed);
-    void removeExpired(unsigned int nBlockHeight);
+    std::vector<uint256> removeExpired(unsigned int nBlockHeight);
     void removeForBlock(const std::vector<CTransaction>& vtx, unsigned int nBlockHeight,
                         std::list<CTransaction>& conflicts, bool fCurrentEstimate = true);
     void removeWithoutBranchId(uint32_t nMemPoolBranchId);
@@ -238,7 +240,8 @@ public:
 
     bool nullifierExists(const uint256& nullifier, ShieldedType type) const;
 
-    void NotifyRecentlyAdded();
+    std::pair<std::vector<CTransaction>, uint64_t> DrainRecentlyAdded();
+    void SetNotifiedSequence(uint64_t recentlyAddedSequence);
     bool IsFullyNotified();
     
     unsigned long size()

@@ -1,4 +1,5 @@
-
+# Copyright (c) 2019-2020 Hush developers
+# Released under the GPLv3
 TESTS += komodo-gtest
 bin_PROGRAMS += komodo-gtest
 
@@ -9,7 +10,6 @@ komodo_gtest_SOURCES = \
 	gtest/test_checktransaction.cpp \
 	gtest/json_test_vectors.cpp \
         gtest/json_test_vectors.h \
-	# gtest/test_foundersreward.cpp \
 	gtest/test_wallet_zkeys.cpp \
 # These tests are order-dependent, because they
 # depend on global state (see #1539)
@@ -63,12 +63,7 @@ if ENABLE_WALLET
 komodo_gtest_LDADD += $(LIBBITCOIN_WALLET)
 endif
 
-komodo_gtest_LDADD += $(LIBZCASH_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(LIBZCASH) $(LIBSNARK) $(LIBZCASH_LIBS)
-
-if ENABLE_PROTON
-komodo_gtest_LDADD += $(LIBBITCOIN_PROTON) $(PROTON_LIBS)
-endif
-
+komodo_gtest_LDADD += $(LIBZCASH_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(EVENT_PTHREADS_LIBS) $(EVENT_LIBS) $(LIBZCASH) $(LIBZCASH_LIBS)
 
 komodo_gtest_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static
 

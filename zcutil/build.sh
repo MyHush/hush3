@@ -11,6 +11,16 @@ function cmd_pref() {
         eval "$1=$3"
     fi
 }
+cat <<'EOF'
+ ________________
+< Building Hush! >
+ ----------------
+        \   ^__^
+         \  (oo)\_______
+            (__)\       )\/\
+                ||----w |
+                ||     ||
+EOF
 
 # If a g-prefixed version of the command exists, use it preferentially.
 function gprefix() {
@@ -42,20 +52,17 @@ fi
 
 if [ "x$*" = 'x--help' ]
 then
+    cat ./zcutil/dragon.txt
     cat <<EOF
+Welcome To The Hush Build System, Here Be Dragons!
 Usage:
 $0 --help
   Show this help message and exit.
-$0 [ --enable-lcov || --disable-tests ] [ --disable-mining ] [ --enable-proton ] [ --disable-libs ] [ MAKEARGS... ]
-  Build Hush and most of its transitive dependencies from
-  source. MAKEARGS are applied to both dependencies and Hush itself.
-  If --enable-lcov is passed, Hush is configured to add coverage
-  instrumentation, thus enabling "make cov" to work.
+$0 [ --enable-lcov || --disable-tests ] [ --disable-mining ] [ --disable-libs ] [ MAKEARGS... ]
+  Build Hush and most of its transitive dependencies from source. MAKEARGS are applied to both dependencies and Hush itself.
+  If --enable-lcov is passed, Hush is configured to add coverage instrumentation, thus enabling "make cov" to work.
   If --disable-tests is passed instead, the Hush tests are not built.
-  If --disable-mining is passed, Hush is configured to not build any mining
-  code. It must be passed after the test arguments, if present.
-  If --enable-proton is passed, Hush is configured to build the Apache Qpid Proton
-  library required for AMQP support. This library is not built by default.
+  If --disable-mining is passed, Hush is configured to not build any mining code. It must be passed after the test arguments, if present.
   It must be passed after the test/mining arguments, if present.
 EOF
     exit 0
@@ -86,23 +93,17 @@ then
     shift
 fi
 
-# If --enable-proton is the next argument, enable building Proton code:
-PROTON_ARG='--enable-proton=no'
-if [ "x${1:-}" = 'x--enable-proton' ]
-then
-    PROTON_ARG=''
-    shift
-fi
-
-eval "$MAKE" --version
-as --version
+# Just show the useful info
+eval "$MAKE" --version | head -n2
+as --version | head -n1
+as --version | tail -n1
 ld -v
 
-HOST="$HOST" BUILD="$BUILD" NO_PROTON="$PROTON_ARG" "$MAKE" "$@" -C ./depends/ V=1
+HOST="$HOST" BUILD="$BUILD" "$MAKE" "$@" -C ./depends/ V=1
 
 ./autogen.sh
 
-CONFIG_SITE="$PWD/depends/$HOST/share/config.site" ./configure "$HARDENING_ARG" "$LCOV_ARG" "$TEST_ARG" "$MINING_ARG" "$PROTON_ARG" $CONFIGURE_FLAGS CXXFLAGS='-g'
+CONFIG_SITE="$PWD/depends/$HOST/share/config.site" ./configure "$HARDENING_ARG" "$LCOV_ARG" "$TEST_ARG" "$MINING_ARG" $CONFIGURE_FLAGS CXXFLAGS='-g'
 
 #BUILD CCLIB
 

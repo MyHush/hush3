@@ -1,4 +1,5 @@
 // Copyright (c) 2012-2013 The Bitcoin Core developers
+// Copyright (c) 2019-2020 The Hush developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -22,6 +23,7 @@
 using namespace std;
 using namespace libzcash;
 
+//TODO: convert to Hush addresses
 static const std::string strSecret1 = "5HxWvvfubhXpYYpS3tJkw6fq9jE9j18THftkZjHHfmFiWtmAbrj";
 static const std::string strSecret2 = "5KC4ejrDjv152FGwP386VD1i2NYc5KkfSMyv1nGy1VGDxGHqVY3";
 static const std::string strSecret1C = "Kwr371tjA9u2rFSMZjTNun2PXXP3WPZu2afRHTcta6KxEUdm1vEw";
@@ -184,41 +186,6 @@ BOOST_AUTO_TEST_CASE(key_test1)
     BOOST_CHECK(key2C.SignCompact(hashMsg, detsigc));
     BOOST_CHECK(detsig == ParseHex("1c52d8a32079c11e79db95af63bb9600c5b04f21a9ca33dc129c2bfa8ac9dc1cd561d8ae5e0f6c1a16bde3719c64c2fd70e404b6428ab9a69566962e8771b5944d"));
     BOOST_CHECK(detsigc == ParseHex("2052d8a32079c11e79db95af63bb9600c5b04f21a9ca33dc129c2bfa8ac9dc1cd561d8ae5e0f6c1a16bde3719c64c2fd70e404b6428ab9a69566962e8771b5944d"));
-}
-
-BOOST_AUTO_TEST_CASE(zc_address_test)
-{
-    for (size_t i = 0; i < 1000; i++) {
-        auto sk = SproutSpendingKey::random();
-        {
-            string sk_string = EncodeSpendingKey(sk);
-
-            BOOST_CHECK(sk_string[0] == 'S');
-            BOOST_CHECK(sk_string[1] == 'K');
-
-            auto spendingkey2 = DecodeSpendingKey(sk_string);
-            BOOST_CHECK(IsValidSpendingKey(spendingkey2));
-            BOOST_ASSERT(boost::get<SproutSpendingKey>(&spendingkey2) != nullptr);
-            auto sk2 = boost::get<SproutSpendingKey>(spendingkey2);
-            BOOST_CHECK(sk.inner() == sk2.inner());
-        }
-        {
-            auto addr = sk.address();
-
-            std::string addr_string = EncodePaymentAddress(addr);
-
-            BOOST_CHECK(addr_string[0] == 'z');
-            BOOST_CHECK(addr_string[1] == 'c');
-
-            auto paymentaddr2 = DecodePaymentAddress(addr_string);
-            BOOST_ASSERT(IsValidPaymentAddress(paymentaddr2));
-
-            BOOST_ASSERT(boost::get<SproutPaymentAddress>(&paymentaddr2) != nullptr);
-            auto addr2 = boost::get<SproutPaymentAddress>(paymentaddr2);
-            BOOST_CHECK(addr.a_pk == addr2.a_pk);
-            BOOST_CHECK(addr.pk_enc == addr2.pk_enc);
-        }
-    }
 }
 
 BOOST_AUTO_TEST_CASE(zs_address_test)

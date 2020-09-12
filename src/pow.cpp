@@ -1,6 +1,6 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
-// Copyright (c) 2019      The Hush developers
+// Copyright (c) 2019-2020 The Hush developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -298,6 +298,9 @@ arith_uint256 zawy_TSA_EMA(int32_t height,int32_t tipdiff,arith_uint256 prevTarg
 
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
 {
+    if (pindexLast->GetHeight() == 340000) {
+        LogPrintf("%s: Using blocktime=%d\n",__func__,ASSETCHAINS_BLOCKTIME);
+    }
     if (ASSETCHAINS_ALGO != ASSETCHAINS_EQUIHASH && ASSETCHAINS_STAKED == 0)
         return lwmaGetNextWorkRequired(pindexLast, pblock, params);
 
@@ -716,15 +719,6 @@ bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t 
             if ( (flag != 0 || special2 > 0) && special2 != -2 )
             {
                 bnTarget.SetCompact(KOMODO_MINDIFF_NBITS,&fNegative,&fOverflow);
-                /*
-                const void* pblock = &blkHeader;
-                CScript merkleroot = CScript();
-                if ( height > nDecemberHardforkHeight && !komodo_checkopret((CBlock*)pblock, merkleroot) ) // December 2019 hardfork
-                {
-                    fprintf(stderr, "failed or missing expected.%s != %s\n", komodo_makeopret((CBlock*)pblock, false).ToString().c_str(), merkleroot.ToString().c_str());
-                    return false;
-                }
-                */
             }
         }
     }

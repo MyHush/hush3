@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+# Copyright (c) 2019-2020 The Hush developers
+# Released under the GPLv3
+
 from __future__ import print_function
 
 '''
@@ -24,7 +27,7 @@ import time
 
 year = time.gmtime()[0]
 last_year = year - 1
-command = "perl -pi -e 's/%s The Bitcoin/%s The Bitcoin/' %s"
+command = "perl -pi -e 's/%s The Hush/%s The Hush/' %s"
 listFilesCommand = "find . | grep %s"
 
 extensions = [".cpp",".h"]

@@ -1,3 +1,4 @@
+// Copyright (c) 2019-2020 The Hush developers
 #ifndef ZC_UTIL_H_
 #define ZC_UTIL_H_
 

@@ -81,7 +81,8 @@ bits320 fexpand(bits256 basepoint)
     return(out);
 }
 
-#if __amd64__
+#if defined(__x86_64__) || defined(_WIN64) || defined(__aarch64__) || defined(__amd64__) || defined(__amd64) || defined(_M_X64) || defined(_M_IA64)
+
 // donna: special gcc mode for 128-bit integers. It's implemented on 64-bit platforms only as far as I know.
 typedef unsigned uint128_t __attribute__((mode(TI)));
 

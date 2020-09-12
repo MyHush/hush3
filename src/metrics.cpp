@@ -1,5 +1,5 @@
 // Copyright (c) 2016 The Zcash developers
-// Copyright (c) 2019 The Hush developers
+// Copyright (c) 2019-2020 The Hush developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -288,7 +288,7 @@ int printMiningStatus(bool mining)
             } else if (IsInitialBlockDownload()) {
                 std::cout << _("Mining is paused while downloading blocks.") << std::endl;
             } else {
-                std::cout << _("Mining is paused (a JoinSplit may be in progress).") << std::endl;
+                std::cout << _("Mining is paused, enhance your calm") << std::endl;
             }
         }
         lines++;

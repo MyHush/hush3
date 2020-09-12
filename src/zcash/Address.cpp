@@ -1,3 +1,7 @@
+// Copyright (c) 2019-2020 The Hush developers
+// Distributed under the MIT software license, see the accompanying
+// file COPYING or https://www.opensource.org/licenses/mit-license.php
+
 #include "Address.hpp"
 #include "NoteEncryption.hpp"
 #include "hash.h"
@@ -12,36 +16,6 @@ const unsigned char ZCASH_SAPLING_FVFP_PERSONALIZATION[crypto_generichash_blake2
 const uint32_t SAPLING_BRANCH_ID = 0x76b809bb;
 
 namespace libzcash {
-
-uint256 SproutPaymentAddress::GetHash() const {
-    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-    ss << *this;
-    return Hash(ss.begin(), ss.end());
-}
-
-uint256 ReceivingKey::pk_enc() const {
-    return ZCNoteEncryption::generate_pubkey(*this);
-}
-
-SproutPaymentAddress SproutViewingKey::address() const {
-    return SproutPaymentAddress(a_pk, sk_enc.pk_enc());
-}
-
-ReceivingKey SproutSpendingKey::receiving_key() const {
-    return ReceivingKey(ZCNoteEncryption::generate_privkey(*this));
-}
-
-SproutViewingKey SproutSpendingKey::viewing_key() const {
-    return SproutViewingKey(PRF_addr_a_pk(*this), receiving_key());
-}
-
-SproutSpendingKey SproutSpendingKey::random() {
-    return SproutSpendingKey(random_uint252());
-}
-
-SproutPaymentAddress SproutSpendingKey::address() const {
-    return viewing_key().address();
-}
 
 //! Sapling
 uint256 SaplingPaymentAddress::GetHash() const {
@@ -118,10 +92,6 @@ class IsValidAddressForNetwork : public boost::static_visitor<bool> {
         uint32_t branchId;
     public:
         IsValidAddressForNetwork(uint32_t consensusBranchId) : branchId(consensusBranchId) {}
-
-        bool operator()(const libzcash::SproutPaymentAddress &addr) const {
-            return true;
-        }
 
         bool operator()(const libzcash::InvalidEncoding &addr) const {
             return false;

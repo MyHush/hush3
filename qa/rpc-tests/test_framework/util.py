@@ -1,5 +1,6 @@
 # Copyright (c) 2014 The Bitcoin Core developers
 # Copyright (c) 2018-2019 The SuperNET developers
+# Copyright (c) 2018-2020 The Hush developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #
@@ -27,6 +28,12 @@ def p2p_port(n):
 def rpc_port(n):
     return 12000 + n + os.getpid()%999
 
+def rpc_username():
+    return "hush"
+
+def rpc_password():
+    return "puppy"
+
 def check_json_precision():
     """Make sure json library being used does not lose precision converting BTC values"""
     n = Decimal("20000000.00000003")
@@ -50,6 +57,14 @@ def sync_blocks(rpc_connections, wait=1):
     while True:
         counts = [ x.getblockcount() for x in rpc_connections ]
         if counts == [ counts[0] ]*len(counts):
+            break
+        time.sleep(wait)
+
+  # Now that the block counts are in sync, wait for the internal
+    # notifications to finish
+    while True:
+        notified = [ x.getblockchaininfo()['fullyNotified'] for x in rpc_connections ]
+        if notified == [ True ] * len(notified):
             break
         time.sleep(wait)
 
@@ -80,57 +95,58 @@ bitcoind_processes = {}
 
 def initialize_datadir(dirname, n):
     datadir = os.path.join(dirname, "node"+str(n))
+    datadir = os.path.join(datadir,"HUSH3")
     if not os.path.isdir(datadir):
         os.makedirs(datadir)
-    # kmd AC's don't use this, they use the conf auto-created when the AC is created
-    # plus CLI arguments. This is for komodod tests
-    print("Writing to " + os.path.join(datadir,"komodo.conf"))
-    with open(os.path.join(datadir, "komodo.conf"), 'w') as f:
+
+    print("Writing to " + os.path.join(datadir,"HUSH3.conf"))
+    with open(os.path.join(datadir, "HUSH3.conf"), 'w') as f:
         f.write("regtest=1\n");
         f.write("txindex=1\n");
         f.write("server=1\n");
         f.write("showmetrics=0\n");
-        f.write("rpcuser=rt\n");
-        f.write("rpcpassword=rt\n");
+        f.write("rpcuser=hush\n");
+        f.write("rpcpassword=puppy\n");
         #f.write("port="+str(p2p_port(n))+"\n");
         #rpcport = str(rpc_port(n))
         #f.write("rpcport="+rpcport+"\n");
         #print "RPC port=" + rpcport
         f.write("listenonion=0\n");
-        # TODO: maybe make these optional, defaulted to on for now
+        # TODO: maybe make these optional, via arg to initialize_datadir, defaulted to on for now
         f.write("addressindex=1\n");
         f.write("spentindex=1\n");
         f.write("timestampindex=1\n");
+        f.write("zindex=1\n");
     return datadir
 
 def initialize_chain(test_dir):
     """
     Create (or copy from cache) a 200-block-long chain and
     4 wallets.
-    komodod and komodo-cli must be in search path.
+    hushd and hush-cli must be in search path.
     """
 
     print("initialize_chain")
-    if not os.path.isdir(os.path.join("cache", "node0")):
+    if not os.path.isdir(os.path.join("cache", "node0", "HUSH3")):
         devnull = open("/dev/null", "w+")
-        # Create cache directories, run komodods:
+        # Create cache directories, run hushds:
         for i in range(4):
             datadir=initialize_datadir("cache", i)
-            args = [ os.getenv("BITCOIND", "komodod"), "-keypool=1", "-datadir="+datadir, "-discover=0" ]
+            args = [ os.getenv("BITCOIND", "hushd"), "-keypool=1", "-datadir="+datadir, "-discover=0" ]
             if i > 0:
                 args.append("-connect=127.0.0.1:"+str(p2p_port(0)))
             bitcoind_processes[i] = subprocess.Popen(args)
-            cmd      = os.getenv("BITCOINCLI", "komodo-cli")
+            cmd      = os.getenv("BITCOINCLI", "hush-cli")
             cmd_args = cmd + " -datadir="+datadir + " -rpcwait getblockcount"
             if os.getenv("PYTHON_DEBUG", ""):
-                print "initialize_chain: komodod started, calling: " + cmd_args
+                print "initialize_chain: hushd started, calling: " + cmd_args
             strcmd = cmd + " " + "-datadir="+datadir + " -rpcwait getblockcount"
 
             print("Running " + strcmd)
             subprocess.check_call(strcmd, shell=True);
             #subprocess.check_call([ cmd, "-rpcwait", "getblockcount"], stdout=devnull)
             if os.getenv("PYTHON_DEBUG", ""):
-                print "initialize_chain: komodo-cli -rpcwait getblockcount completed"
+                print "initialize_chain: hush-cli -rpcwait getblockcount completed"
         devnull.close()
         rpcs = []
         for i in range(4):
@@ -145,6 +161,7 @@ def initialize_chain(test_dir):
         # gets 25 mature blocks and 25 immature.
         # blocks are created with timestamps 10 minutes apart, starting
         # at 1 Jan 2014
+        # TODO: change this to a recent time
         block_time = 1388534400
         for i in range(2):
             for peer in range(4):
@@ -159,6 +176,7 @@ def initialize_chain(test_dir):
         stop_nodes(rpcs)
         wait_bitcoinds()
         for i in range(4):
+            print "Cleaning up cache dir files"
             os.remove(log_filename("cache", i, "debug.log"))
             os.remove(log_filename("cache", i, "db.log"))
             os.remove(log_filename("cache", i, "peers.dat"))
@@ -168,7 +186,7 @@ def initialize_chain(test_dir):
         from_dir = os.path.join("cache", "node"+str(i))
         to_dir = os.path.join(test_dir,  "node"+str(i))
         shutil.copytree(from_dir, to_dir)
-        initialize_datadir(test_dir, i) # Overwrite port/rpcport in komodo.conf
+        initialize_datadir(test_dir, i) # Overwrite port/rpcport in hush.conf
 
 def initialize_chain_clean(test_dir, num_nodes):
     """
@@ -201,7 +219,7 @@ def _rpchost_to_args(rpchost):
 
 def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=None):
     """
-    Start a komodod and return RPC connection to it
+    Start a hushd and return RPC connection to it
     """
     datadir = os.path.join(dirname, "node"+str(i))
     # creating special config in case of cryptocondition asset chain test
@@ -220,32 +238,34 @@ def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=
             config.write("bind=127.0.0.1\n")
             config.write("rpcbind=127.0.0.1")
     if binary is None:
-        binary = os.getenv("BITCOIND", "komodod")
+        binary = os.getenv("BITCOIND", "hushd")
     args = [ binary, "-datadir="+datadir, "-keypool=1", "-discover=0", "-rest" ]
     if extra_args is not None: args.extend(extra_args)
     #print("args=" + ' '.join(args))
     bitcoind_processes[i] = subprocess.Popen(args)
     devnull = open("/dev/null", "w+")
 
-    cmd = os.getenv("BITCOINCLI", "komodo-cli")
+    cmd = os.getenv("BITCOINCLI", "hush-cli")
     print("cmd=" + cmd)
     cmd_args = ' '.join(extra_args) + " -rpcwait getblockcount "
     if os.getenv("PYTHON_DEBUG", ""):
-        print "start_node: komodod started, calling : " + cmd + " " + cmd_args
+        print "start_node: hushd started, calling : " + cmd + " " + cmd_args
     strcmd = cmd + " " + cmd_args
 
     print("Running " + strcmd)
     import time
     time.sleep(2)
     subprocess.check_call(strcmd, shell=True);
-    #subprocess.check_call([ os.getenv("BITCOINCLI", "komodo-cli"), "-datadir="+datadir] +
+    #subprocess.check_call([ os.getenv("BITCOINCLI", "hush-cli"), "-datadir="+datadir] +
     #                      _rpchost_to_args(rpchost)  +
     #                      ["-rpcwait", "-rpcport=6438", "getblockcount"], stdout=devnull)
     if os.getenv("PYTHON_DEBUG", ""):
-        print "start_node: calling komodo-cli -rpcwait getblockcount returned"
+        print "start_node: calling hush-cli -rpcwait getblockcount returned"
     devnull.close()
-    port = extra_args[3]
-    url = "http://rt:rt@%s:%d" % (rpchost or '127.0.0.1', int(port[9:]))
+    port     = extra_args[3]
+    username = rpc_username()
+    password = rpc_password()
+    url      = "http://%s:%s@%s:%d" % (username, password, rpchost or '127.0.0.1', int(port[9:]))
     print("connecting to " + url)
     if timewait is not None:
         proxy = AuthServiceProxy(url, timeout=timewait)
@@ -257,7 +277,7 @@ def start_node(i, dirname, extra_args=None, rpchost=None, timewait=None, binary=
 
 def start_nodes(num_nodes, dirname, extra_args=None, rpchost=None, binary=None):
     """
-    Start multiple komodods, return RPC connections to them
+    Start multiple hushds, return RPC connections to them
     """
     if extra_args is None: extra_args = [ None for i in range(num_nodes) ]
     if binary is None: binary = [ None for i in range(num_nodes) ]

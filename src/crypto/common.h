@@ -1,4 +1,6 @@
 // Copyright (c) 2014 The Bitcoin Core developers
+// Copyright (c) 2019-2020 The Hush developers
+// Released under the GPLv3
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -17,7 +19,7 @@
 #include "compat/endian.h"
 
 #if defined(NDEBUG)
-# error "Zcash cannot be compiled without assertions."
+# error "Hush cannot be compiled without assertions."
 #endif
 
 uint16_t static inline ReadLE16(const unsigned char* ptr)

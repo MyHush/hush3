@@ -1,12 +1,4 @@
-rust_packages := rust librustzcash
-
-ifeq ($(build_os),darwin)
-	zcash_packages := libsnark libgmp libsodium utfcpp
-else
-	proton_packages := proton
-	zcash_packages := libgmp libsodium utfcpp
-endif
-
+zcash_packages :=  libgmp libsodium utfcpp
 rust_crates := \
   crate_aes \
   crate_aesni \

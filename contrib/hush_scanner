@@ -1,0 +1,29 @@
+#!/usr/bin/env perl
+# Copyright (c) 2019 The Hush developers
+# Released under the GPLv3
+use strict;
+use warnings;
+
+# Given a file of host data, one per line,
+# scan them to see if p2p/rpc ports are accessible
+# RPCs should not be open to the internet and this is
+# an easy way to check many hosts, as well as seeing
+# if a full node is down via an inaccessible p2p port.
+# Scan a different coin via P2PPORT and RPCPORT.
+
+print "HOST   P2P  RPC\n";
+while (<>) {
+    chomp;
+    my $host = $_;
+    my $p2pport = $ENV{P2PPORT} || 18030;
+    my $rpcport = $ENV{RPCPORT} || $p2pport + 1;
+    my $cmd1  = qq{nc -z -w2 $host $p2pport};
+    my $cmd2  = qq{nc -z -w2 $host $rpcport};
+    qx{$cmd1};
+    my $errcode1 = $?;
+    qx{$cmd2};
+    my $errcode2 = $?;
+    my $status1  = $errcode1 ? "DOWN" : "UP";
+    my $status2  = $errcode2 ? "DOWN" : "UP";
+    print "$host $status1 $status2\n"
+}

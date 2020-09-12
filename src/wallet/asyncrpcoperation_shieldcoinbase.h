@@ -1,4 +1,5 @@
 // Copyright (c) 2017 The Zcash developers
+// Copyright (c) 2019-2020 The Hush developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -32,8 +33,6 @@
 #include <tuple>
 
 #include <univalue.h>
-
-#include "paymentdisclosure.h"
 
 // Default transaction fee if caller does not specify one.
 #define SHIELD_COINBASE_DEFAULT_MINERS_FEE   10000
@@ -80,8 +79,6 @@ public:
     bool testmode = false;  // Set to true to disable sending txs and generating proofs
     bool cheatSpend = false; // set when this is shielding a cheating coinbase
 
-    bool paymentDisclosureMode = true; // Set to true to save esk for encrypted notes in payment disclosure database.
-
 private:
     friend class ShieldToAddress;
     friend class TEST_FRIEND_AsyncRPCOperation_shieldcoinbase;    // class for unit testing
@@ -109,9 +106,6 @@ private:
     void lock_utxos();
 
     void unlock_utxos();
-
-    // payment disclosure!
-    std::vector<PaymentDisclosureKeyInfo> paymentDisclosureData_;
 };
 
 class ShieldToAddress : public boost::static_visitor<bool>
@@ -123,7 +117,6 @@ public:
     ShieldToAddress(AsyncRPCOperation_shieldcoinbase *op, CAmount sendAmount) :
         m_op(op), sendAmount(sendAmount) {}
 
-    bool operator()(const libzcash::SproutPaymentAddress &zaddr) const;
     bool operator()(const libzcash::SaplingPaymentAddress &zaddr) const;
     bool operator()(const libzcash::InvalidEncoding& no) const;
 };

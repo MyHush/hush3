@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# Copyright 2019 The Hush developers
+# Copyright 2019-2020 The Hush developers
 # Released under the GPLv3
 use warnings;
 use strict;
@@ -9,9 +9,13 @@ use strict;
 my $perday  = 576;
 my $hush    = "./src/hush-cli";
 my $gethash = "$hush getblockhash";
-my $stride  = shift || 1000;
+my $stride  = shift || 5000;
 my $count   = 0;
 my $blocks  = qx{$hush getblockcount};
+if($?) {
+    print "ERROR, exiting...\n";
+    exit 1;
+}
 my $prev    = $blocks - $perday;
 my $last    = 0;
 my $now     = time();

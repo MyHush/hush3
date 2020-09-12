@@ -1,4 +1,4 @@
-// Copyright 2019 The Hush developers
+// Copyright 2019-2020 The Hush developers
 /******************************************************************************
  * Copyright © 2014-2019 The SuperNET Developers.                             *
  *                                                                            *
@@ -26,8 +26,6 @@ int32_t dummy_linker_tricker()
     if ( secp256k1_schnorrsig_parse((const secp256k1_context *)ctx,&musig,(const uint8_t *)&musig64[0]) > 0 && secp256k1_ec_pubkey_parse(ctx,&combined_pk,pk.begin(),33) > 0 )
         return(1);
 }*/
-
-int32_t MarmaraValidateCoinbase(int32_t height,CTransaction tx);
 
 int32_t pax_fiatstatus(uint64_t *available,uint64_t *deposited,uint64_t *issued,uint64_t *withdrawn,uint64_t *approved,uint64_t *redeemed,char *base)
 {
@@ -738,14 +736,6 @@ int32_t komodo_check_deposit(int32_t height,const CBlock& block,uint32_t prevtim
                     }
                 }
             }
-        }
-    }
-    if ( height > 0 && ASSETCHAINS_MARMARA != 0 && (height & 1) == 0 )
-    {
-        if ( MarmaraValidateCoinbase(height,block.vtx[0]) < 0 )
-        {
-            fprintf(stderr,"MARMARA error ht.%d constrains even height blocks to pay 100%% to CC in vout0 with opreturn\n",height);
-            return(-1);
         }
     }
     if ( ASSETCHAINS_SYMBOL[0] == 0 ||

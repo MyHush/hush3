@@ -1,8 +1,8 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
-// Copyright (c) 2019      The Hush developers
+// Copyright (c) 2019-2020 The Hush developers
 // Distributed under the MIT software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+// file COPYING or https://www.opensource.org/licenses/mit-license.php
 
 /******************************************************************************
  * Copyright © 2014-2019 The SuperNET Developers.                             *
@@ -126,8 +126,8 @@ extern int8_t ASSETCHAINS_ADAPTIVEPOW;
 void UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
 {
     if ( ASSETCHAINS_ADAPTIVEPOW <= 0 )
-        pblock->nTime = std::max(pindexPrev->GetMedianTimePast()+1, GetAdjustedTime());
-    else pblock->nTime = std::max((int64_t)(pindexPrev->nTime+1), GetAdjustedTime());
+        pblock->nTime = std::max(pindexPrev->GetMedianTimePast()+1, GetTime());
+    else pblock->nTime = std::max((int64_t)(pindexPrev->nTime+1), GetTime());
 
     // Updating time can change work required on testnet:
     if (ASSETCHAINS_ADAPTIVEPOW > 0 || consensusParams.nPowAllowMinDifficultyBlocksAfterHeight != boost::none)
@@ -153,8 +153,6 @@ uint64_t komodo_commission(const CBlock *block,int32_t height);
 int32_t komodo_notaryvin(CMutableTransaction &txNew,uint8_t *notarypub33, void *ptr);
 int32_t decode_hex(uint8_t *bytes,int32_t n,char *hex);
 int32_t komodo_is_notarytx(const CTransaction& tx);
-CScript Marmara_scriptPubKey(int32_t height,CPubKey pk);
-CScript MarmaraCoinbaseOpret(uint8_t funcid,int32_t height,CPubKey pk);
 uint64_t komodo_notarypay(CMutableTransaction &txNew, std::vector<int8_t> &NotarisationNotaries, uint32_t timestamp, int32_t height, uint8_t *script, int32_t len);
 int32_t komodo_notaries(uint8_t pubkeys[64][33],int32_t height,uint32_t timestamp);
 int32_t komodo_getnotarizedheight(uint32_t timestamp,int32_t height, uint8_t *script, int32_t len);
@@ -241,7 +239,7 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
         bool sapling = NetworkUpgradeActive(nHeight, consensusParams, Consensus::UPGRADE_SAPLING);
 
         const int64_t nMedianTimePast = pindexPrev->GetMedianTimePast();
-        uint32_t proposedTime = GetAdjustedTime();
+        uint32_t proposedTime = GetTime();
         voutsum = GetBlockSubsidy(nHeight,consensusParams) + 10000*COIN; // approx fees
 
         if (proposedTime == nMedianTimePast)
@@ -250,12 +248,12 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
             // forward as quickly as possible
             for (int i; i < 100; i++)
             {
-                proposedTime = GetAdjustedTime();
+                proposedTime = GetTime();
                 if (proposedTime == nMedianTimePast)
                     MilliSleep(10);
             }
         }
-        pblock->nTime = GetAdjustedTime();
+        pblock->nTime = GetTime();
         // Now we have the block time + height, we can get the active notaries.
         int8_t numSN = 0; uint8_t notarypubkeys[64][33] = {0};
         if ( ASSETCHAINS_NOTARY_PAY[0] != 0 )
@@ -342,7 +340,7 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
                         if (!mempool.mapTx.count(txin.prevout.hash))
                         {
                             LogPrintf("ERROR: mempool transaction missing input\n");
-                            if (fDebug) assert("mempool transaction missing input" == 0);
+                            // if (fDebug) assert("mempool transaction missing input" == 0);
                             fMissingInputs = true;
                             if (porphan)
                                 vOrphan.pop_back();
@@ -474,6 +472,40 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
 
             // Size limits
             unsigned int nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
+
+            // Opret spam limits
+            if (mapArgs.count("-opretmintxfee"))
+            {
+                CAmount n = 0;
+                CFeeRate opretMinFeeRate;
+                if (ParseMoney(mapArgs["-opretmintxfee"], n) && n > 0)
+                    opretMinFeeRate = CFeeRate(n);
+                else
+                    opretMinFeeRate = CFeeRate(400000); // default opretMinFeeRate (1 HUSH per 250 Kb = 0.004 per 1 Kb = 400000 puposhis per 1 Kb)
+
+                bool fSpamTx = false;
+                unsigned int nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
+                unsigned int nTxOpretSize = 0;
+
+                // calc total oprets size
+                BOOST_FOREACH(const CTxOut& txout, tx.vout) {
+                    if (txout.scriptPubKey.IsOpReturn()) {
+                        CScript::const_iterator it = txout.scriptPubKey.begin() + 1;
+                        opcodetype op;
+                        std::vector<uint8_t> opretData;
+                        if (txout.scriptPubKey.GetOp(it, op, opretData)) {
+                            //std::cerr << HexStr(opretData.begin(), opretData.end()) << std::endl;
+                            nTxOpretSize += opretData.size();
+                        }
+                    }
+                }
+
+                if ((nTxOpretSize > 256) && (feeRate < opretMinFeeRate)) fSpamTx = true;
+                // std::cerr << tx.GetHash().ToString() << " nTxSize." << nTxSize << " nTxOpretSize." << nTxOpretSize << " feeRate." << feeRate.ToString() << " opretMinFeeRate." << opretMinFeeRate.ToString() << " fSpamTx." << fSpamTx << std::endl;
+                if (fSpamTx) continue;
+                // std::cerr << tx.GetHash().ToString() << " vecPriority.size() = " << vecPriority.size() << std::endl;
+            }
+
             if (nBlockSize + nTxSize >= nBlockMaxSize-512) // room for extra autotx
             {
                 //fprintf(stderr,"nBlockSize %d + %d nTxSize >= %d nBlockMaxSize\n",(int32_t)nBlockSize,(int32_t)nTxSize,(int32_t)nBlockMaxSize);
@@ -571,8 +603,8 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
         nLastBlockTx = nBlockTx;
         nLastBlockSize = nBlockSize;
         if ( ASSETCHAINS_ADAPTIVEPOW <= 0 )
-            blocktime = 1 + std::max(pindexPrev->GetMedianTimePast()+1, GetAdjustedTime());
-        else blocktime = 1 + std::max((int64_t)(pindexPrev->nTime+1), GetAdjustedTime());
+            blocktime = 1 + std::max(pindexPrev->GetMedianTimePast()+1, GetTime());
+        else blocktime = 1 + std::max((int64_t)(pindexPrev->nTime+1), GetTime());
         //pblock->nTime = blocktime + 1;
         pblock->nBits = GetNextWorkRequired(pindexPrev, pblock, Params().GetConsensus());
 
@@ -592,8 +624,8 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
         //fprintf(stderr,"mine ht.%d with %.8f\n",nHeight,(double)txNew.vout[0].nValue/COIN);
         txNew.nExpiryHeight = 0;
         if ( ASSETCHAINS_ADAPTIVEPOW <= 0 )
-            txNew.nLockTime = std::max(pindexPrev->GetMedianTimePast()+1, GetAdjustedTime());
-        else txNew.nLockTime = std::max((int64_t)(pindexPrev->nTime+1), GetAdjustedTime());
+            txNew.nLockTime = std::max(pindexPrev->GetMedianTimePast()+1, GetTime());
+        else txNew.nLockTime = std::max((int64_t)(pindexPrev->nTime+1), GetTime());
 
 
         if ( ASSETCHAINS_SYMBOL[0] == 0 && IS_KOMODO_NOTARY != 0 && My_notaryid >= 0 )
@@ -950,6 +982,9 @@ static bool ProcessBlockFound(CBlock* pblock)
             return error("HushMiner: generated block is stale");
         }
     }
+
+    // Inform about the new block
+    GetMainSignals().BlockFound(pblock->GetHash());
 
 #ifdef ENABLE_WALLET
     // Remove key from key pool
@@ -1333,10 +1368,10 @@ void static BitcoinMiner()
                           //  MilliSleep(30);
                         return false;
                     }
-                    if ( IS_KOMODO_NOTARY != 0 && B.nTime > GetAdjustedTime() )
+                    if ( IS_KOMODO_NOTARY != 0 && B.nTime > GetTime() )
                     {
-                        //fprintf(stderr,"need to wait %d seconds to submit block\n",(int32_t)(B.nTime - GetAdjustedTime()));
-                        while ( GetAdjustedTime() < B.nTime-2 )
+                        //fprintf(stderr,"need to wait %d seconds to submit block\n",(int32_t)(B.nTime - GetTime()));
+                        while ( GetTime() < B.nTime-2 )
                         {
                             sleep(1);
                             if ( chainActive.LastTip()->GetHeight() >= Mining_height )

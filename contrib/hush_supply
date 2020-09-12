@@ -1,33 +1,56 @@
 #!/usr/bin/env perl
-# Copyright 2019 The Hush developers
+# Copyright 2019-2020 The Hush developers
 # Released under the GPLv3
 use warnings;
 use strict;
 
+# Simulate the total supply on Hush v3 mainnet
+# Todo: track FR
+# Todo: verify FR off-by-one
+
 my $supply   = 0.0;
-my $block    = 0;
-my $satoshis = 100_000_000;
-my $amount   = int(12.5*$satoshis);
+my $block    = 0; # Block 0 in Hush Smart chains is the BTC genesis block
+my $puposhis = 100_000_000;
+my $reward0  = 1_250_000_000;
 my $halvings = 0;
+my $initial  = 6178674 * $puposhis;
+my $interval = 1_640_000; # 4 years of 75s blocks
+my $stop     = shift || -1;
+my $totalfr  = 0; # total paid out to FR address
+my $reward   = $reward0;
 
-# Usage: ./hush_supply &> supply.csv
+# Usage: ./hush_supply  &> supply.csv
+#        ./hush_supply HEIGHT &> supply.csv # stop at HEIGHT
 
-# Use this to calculate when supply hits a certain value
-#while ($supply <= 21_000_000*$satoshis) {
-# Use this to calculate when block rewards end
-while ($halvings <= 64 && $amount >= 1) {
+printf "# block, supply, reward, fr, totalfr, halvings\n";
+
+# We know BR will go to zero between 7 and 8th halvings
+while ($halvings <= 10) {
     $block++;
-    if ($block < 5) {
-        $amount = 40_000 * $satoshis;
+    my $fr = 0;
+    # blocks 2-127 of Hush v3 had BR=0
+    if ($block == 1) {
+        $reward = $initial; # airdropped funds from Hush v2 mainnet
+    } elsif ($block > 1 && $block < 128) {
+        $reward = 0; # blocks 2-127 have BR=0
     } else {
-        # Halving every 840000 blocks
-        if ($block % 840_000 == 0) {
-            $amount /= 2;
-            $halvings++;
+        $fr = 125_000_000;
+        if ($block < 340_000) {
+            $reward = $reward0;
+        } else {
+            my $shifted = $block - 340_000;
+            # Past the first halving
+            $halvings = 1 + int ($shifted / $interval);
+            if ($shifted % 840_000 == 0) {
+                $reward >>= 2;
+                $fr     >>= 2;
+            }
         }
-        $amount = int(12.5*$satoshis) / (2**$halvings);
     }
-    $supply += $amount;
-    # block, current supply, block reward amount, number of halvings
-    printf "%s,%s,%s,%s\n", $block,$supply / $satoshis, $amount / $satoshis, $halvings;
+    $supply  += $reward;
+    $totalfr += $fr;
+
+    # block, current supply, block reward amount, number of halvings, all amounts are in puposhis
+    printf "%d,%d,%d,%d,%d,%d\n", $block, $supply, $reward, $fr, $totalfr, $halvings;
+    exit(0) if $block == $stop;
 }

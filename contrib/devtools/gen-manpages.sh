@@ -21,6 +21,7 @@ HUSHVER=$(./src/hushd --version|head -n2|tail -n1|cut -d' ' -f4|cut -d- -f1)
 echo "[COPYRIGHT]" > footer.h2m
 $HUSHD --version | sed -n '1!p' >> footer.h2m
 
+echo "Generating man pages for Hush $HUSHVER"
 for cmd in $HUSHD $HUSHCLI $HUSHTX; do
   cmdname="${cmd##*/}"
   help2man -N --version-string=${HUSHVER} --include=footer.h2m -o ${MANDIR}/${cmdname}.1 ${cmd}

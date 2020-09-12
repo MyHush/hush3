@@ -1,4 +1,4 @@
-// Copyright (c) 2019 The Hush developers
+// Copyright (c) 2019-2020 The Hush developers
 /******************************************************************************
  * Copyright © 2014-2019 The SuperNET Developers.                             *
  *                                                                            *
@@ -1534,24 +1534,48 @@ char *argv0names[] =
     (char *)"MNZ", (char *)"MNZ", (char *)"MNZ", (char *)"MNZ", (char *)"BTCH", (char *)"BTCH", (char *)"BTCH", (char *)"BTCH"
 };
 
+
+// Large total supplies lead to numerical errors, beware!
 uint64_t komodo_max_money()
 {
     return komodo_current_supply(10000000);
 }
 
+
+// This implements the Hush Emission Curve
+uint64_t hush_block_subsidy(int nHeight)
+{
+    uint64_t subsidy=0;
+    //TODO: Cover all halvings until BR=0
+    //if (nHeight >= 3700000) {
+    //    subsidy = ASSETCHAINS_REWARD[4];
+    //} else
+    if (nHeight >= 2020000) {
+        subsidy = 140625000;
+    } else if (nHeight >= GetArg("-z2zheight",340000)) {
+        subsidy = 281250000;
+    } else if (nHeight >= 128) {
+        subsidy = 1125000000;
+    }
+    return subsidy;
+}
+
+// wrapper for more general supply curves of Hush Smart Chains
 uint64_t komodo_ac_block_subsidy(int nHeight)
 {
-    // we have to find our era, start from beginning reward, and determine current subsidy
+    fprintf(stderr,"%s: ht.%d\n", __func__, nHeight);
+    // Find current era, start from beginning reward, and determine current subsidy
     int64_t numerator, denominator, subsidy = 0;
     int64_t subsidyDifference;
     int32_t numhalvings, curEra = 0, sign = 1;
     static uint64_t cached_subsidy; static int32_t cached_numhalvings; static int cached_era;
+    bool ishush3 = strncmp(ASSETCHAINS_SYMBOL, "HUSH3",5) == 0 ? true : false;
 
     // check for backwards compat, older chains with no explicit rewards had 0.0001 block reward
-    if ( ASSETCHAINS_ENDSUBSIDY[0] == 0 && ASSETCHAINS_REWARD[0] == 0 )
+    if ( ASSETCHAINS_ENDSUBSIDY[0] == 0 && ASSETCHAINS_REWARD[0] == 0 ) {
+        fprintf(stderr,"%s: defaulting to 0.0001 subsidy\n",__func__);
         subsidy = 10000;
-    else if ( (ASSETCHAINS_ENDSUBSIDY[0] == 0 && ASSETCHAINS_REWARD[0] != 0) || ASSETCHAINS_ENDSUBSIDY[0] != 0 )
-    {
+    } else if ( (ASSETCHAINS_ENDSUBSIDY[0] == 0 && ASSETCHAINS_REWARD[0] != 0) || ASSETCHAINS_ENDSUBSIDY[0] != 0 ) {
         // if we have an end block in the first era, find our current era
         if ( ASSETCHAINS_ENDSUBSIDY[0] != 0 )
         {
@@ -1561,26 +1585,30 @@ uint64_t komodo_ac_block_subsidy(int nHeight)
                     break;
             }
         }
+
         if ( curEra <= ASSETCHAINS_LASTERA )
         {
             int64_t nStart = curEra ? ASSETCHAINS_ENDSUBSIDY[curEra - 1] : 0;
             subsidy = (int64_t)ASSETCHAINS_REWARD[curEra];
+            fprintf(stderr,"%s: nStart.%ld subsidy.%ld curEra.%d\n",__func__,nStart,subsidy,curEra);
+
             if ( subsidy || (curEra != ASSETCHAINS_LASTERA && ASSETCHAINS_REWARD[curEra + 1] != 0) )
             {
                 if ( ASSETCHAINS_HALVING[curEra] != 0 )
                 {
-                    if ( (numhalvings = ((nHeight - nStart) / ASSETCHAINS_HALVING[curEra])) > 0 )
-                    {
-                        if ( ASSETCHAINS_DECAY[curEra] == 0 )
+                    if (ishush3) {
+                        subsidy = hush_block_subsidy(nHeight);
+                        fprintf(stderr,"%s: HUSH3 subsidy=%ld at height=%d\n",__func__,subsidy,nHeight);
+                    } else if ( (numhalvings = ((nHeight - nStart) / ASSETCHAINS_HALVING[curEra])) > 0 ) {
+                        // The code below is not compatible with HUSH3 mainnet
+                        if ( ASSETCHAINS_DECAY[curEra] == 0 ) {
                             subsidy >>= numhalvings;
-                        else if ( ASSETCHAINS_DECAY[curEra] == 100000000 && ASSETCHAINS_ENDSUBSIDY[curEra] != 0 )
-                        {
+                            fprintf(stderr,"%s: no decay, numhalvings.%d curEra.%d subsidy.%ld nStart.%ld\n",__func__, numhalvings, curEra, subsidy, nStart);
+                        } else if ( ASSETCHAINS_DECAY[curEra] == 100000000 && ASSETCHAINS_ENDSUBSIDY[curEra] != 0 ) {
                             if ( curEra == ASSETCHAINS_LASTERA )
                             {
                                 subsidyDifference = subsidy;
-                            }
-                            else
-                            {
+                            } else {
                                 // Ex: -ac_eras=3 -ac_reward=0,384,24 -ac_end=1440,260640,0 -ac_halving=1,1440,2103840 -ac_decay 100000000,97750000,0
                                 subsidyDifference = subsidy - ASSETCHAINS_REWARD[curEra + 1];
                                 if (subsidyDifference < 0)
@@ -1592,13 +1620,10 @@ uint64_t komodo_ac_block_subsidy(int nHeight)
                             denominator = ASSETCHAINS_ENDSUBSIDY[curEra] - nStart;
                             numerator = denominator - ((ASSETCHAINS_ENDSUBSIDY[curEra] - nHeight) + ((nHeight - nStart) % ASSETCHAINS_HALVING[curEra]));
                             subsidy = subsidy - sign * ((subsidyDifference * numerator) / denominator);
-                        }
-                        else
-                        {
-                            if ( cached_subsidy > 0 && cached_era == curEra && cached_numhalvings == numhalvings )
+                        } else {
+                            if ( cached_subsidy > 0 && cached_era == curEra && cached_numhalvings == numhalvings ) {
                                 subsidy = cached_subsidy;
-                            else
-                            {
+                            } else {
                                 for (int i=0; i < numhalvings && subsidy != 0; i++)
                                     subsidy = (subsidy * ASSETCHAINS_DECAY[curEra]) / 100000000;
                                 cached_subsidy = subsidy;
@@ -1609,28 +1634,27 @@ uint64_t komodo_ac_block_subsidy(int nHeight)
                     }
                 }
             }
+        } else {
+            fprintf(stderr,"%s: curEra.%d > lastEra.%lu\n", __func__, curEra, ASSETCHAINS_LASTERA);
         }
     }
     uint32_t magicExtra = ASSETCHAINS_STAKED ? ASSETCHAINS_MAGIC : (ASSETCHAINS_MAGIC & 0xffffff);
     if ( ASSETCHAINS_SUPPLY > 10000000000 ) // over 10 billion?
     {
+        fprintf(stderr,"%s: Detected supply over 10 billion, danger zone!\n",__func__);
         if ( nHeight <= ASSETCHAINS_SUPPLY/1000000000 )
         {
             subsidy += (uint64_t)1000000000 * COIN;
             if ( nHeight == 1 )
                 subsidy += (ASSETCHAINS_SUPPLY % 1000000000)*COIN + magicExtra;
         }
-    }
-    else if ( nHeight == 1 )
-    {
+    } else if ( nHeight == 1 ) {
         if ( ASSETCHAINS_LASTERA == 0 )
             subsidy = ASSETCHAINS_SUPPLY * SATOSHIDEN + magicExtra;
         else
             subsidy += ASSETCHAINS_SUPPLY * SATOSHIDEN + magicExtra;
     }
-    else if ( is_STAKED(ASSETCHAINS_SYMBOL) == 2 )
-        return(0);
-    // LABS fungible chains, cannot have any block reward!
+    fprintf(stderr,"%s: ht.%d curEra.%d lastEra.%lu subsidy.%ld numhalvings.%d magicExtra.%u\n",__func__,nHeight,curEra,ASSETCHAINS_LASTERA,subsidy,numhalvings,magicExtra);
     return(subsidy);
 }
 
@@ -1798,6 +1822,7 @@ void komodo_args(char *argv0)
             printf("ASSETCHAINS_LASTERA, if specified, must be between 1 and %u. ASSETCHAINS_LASTERA set to %lu\n", ASSETCHAINS_MAX_ERAS, ASSETCHAINS_LASTERA);
         }
         ASSETCHAINS_LASTERA -= 1;
+        fprintf(stderr,"%s: lastEra=%lu maxEras=%d\n", __func__, ASSETCHAINS_LASTERA, ASSETCHAINS_MAX_ERAS);
 
         ASSETCHAINS_TIMELOCKGTE = (uint64_t)GetArg("-ac_timelockgte", _ASSETCHAINS_TIMELOCKOFF);
         ASSETCHAINS_TIMEUNLOCKFROM = GetArg("-ac_timeunlockfrom", 0);
@@ -1805,13 +1830,33 @@ void komodo_args(char *argv0)
         if ( ASSETCHAINS_TIMEUNLOCKFROM > ASSETCHAINS_TIMEUNLOCKTO )
         {
             printf("ASSETCHAINS_TIMELOCKGTE - must specify valid ac_timeunlockfrom and ac_timeunlockto\n");
-            ASSETCHAINS_TIMELOCKGTE = _ASSETCHAINS_TIMELOCKOFF;
+            ASSETCHAINS_TIMELOCKGTE    = _ASSETCHAINS_TIMELOCKOFF;
             ASSETCHAINS_TIMEUNLOCKFROM = ASSETCHAINS_TIMEUNLOCKTO = 0;
         }
 
         Split(GetArg("-ac_end",""), sizeof(ASSETCHAINS_ENDSUBSIDY)/sizeof(*ASSETCHAINS_ENDSUBSIDY),  ASSETCHAINS_ENDSUBSIDY, 0);
-        Split(GetArg("-ac_reward",""), sizeof(ASSETCHAINS_REWARD)/sizeof(*ASSETCHAINS_REWARD),  ASSETCHAINS_REWARD, 0);
         Split(GetArg("-ac_halving",""), sizeof(ASSETCHAINS_HALVING)/sizeof(*ASSETCHAINS_HALVING),  ASSETCHAINS_HALVING, 0);
+        Split(GetArg("-ac_reward",""), sizeof(ASSETCHAINS_REWARD)/sizeof(*ASSETCHAINS_REWARD),  ASSETCHAINS_REWARD, 0);
+
+        bool ishush3 = strncmp(ASSETCHAINS_SYMBOL, "HUSH3",5) == 0 ? true : false;
+
+        if(ishush3) {
+            fprintf(stderr,"Setting custom HUSH3 chain values...\n");
+            // Over-ride HUSH3 values from CLI params. Changing our blocktime to 75s changes things
+            ASSETCHAINS_REWARD[0]     = 0;
+            ASSETCHAINS_REWARD[1]     = 1125000000;
+            ASSETCHAINS_REWARD[2]     = 281250000; // 2.8125  HUSH goes to miners per block after 1st halving at Block 340K
+            ASSETCHAINS_REWARD[3]     = 140625000; // 1.40625 HUSH after 2nd halving at Block 2020000
+            ASSETCHAINS_HALVING[0]    = 129;
+            ASSETCHAINS_HALVING[1]    = GetArg("-z2zheight",340000);
+            ASSETCHAINS_HALVING[2]    = 2020000; // 2020000 = 340000 + 1680000 (1st halving block plus new halving interval)
+            ASSETCHAINS_HALVING[3]    = 3700000; // ASSETCHAINS_HALVING[2] + 1680000;
+            ASSETCHAINS_ENDSUBSIDY[0] = 129;
+            ASSETCHAINS_ENDSUBSIDY[1] = GetArg("-z2zheight",340000);
+            ASSETCHAINS_ENDSUBSIDY[2] = 2*5422111; // TODO: Fix this, twice the previous end of rewards is an estimate
+            // TODO: fill in all possible values for each halving/reward interval
+            // based on simple halving schedule
+        }
         Split(GetArg("-ac_decay",""), sizeof(ASSETCHAINS_DECAY)/sizeof(*ASSETCHAINS_DECAY),  ASSETCHAINS_DECAY, 0);
         Split(GetArg("-ac_notarypay",""), sizeof(ASSETCHAINS_NOTARY_PAY)/sizeof(*ASSETCHAINS_NOTARY_PAY),  ASSETCHAINS_NOTARY_PAY, 0);
 
@@ -1846,7 +1891,6 @@ void komodo_args(char *argv0)
         ASSETCHAINS_SCRIPTPUB = GetArg("-ac_script","");
         ASSETCHAINS_BEAMPORT = GetArg("-ac_beam",0);
         ASSETCHAINS_CODAPORT = GetArg("-ac_coda",0);
-        ASSETCHAINS_MARMARA = GetArg("-ac_marmara",0);
         ASSETCHAINS_CBOPRET = GetArg("-ac_cbopret",0);
         ASSETCHAINS_CBMATURITY = GetArg("-ac_cbmaturity",0);
         ASSETCHAINS_ADAPTIVEPOW = GetArg("-ac_adaptivepow",0);
@@ -2022,11 +2066,7 @@ void komodo_args(char *argv0)
                 printf("ASSETCHAINS_FOUNDERS needs an ASSETCHAINS_OVERRIDE_PUBKEY or ASSETCHAINS_SCRIPTPUB\n");
             }
         }
-        if ( ASSETCHAINS_SCRIPTPUB.size() > 1 && ASSETCHAINS_MARMARA != 0 )
-        {
-            fprintf(stderr,"-ac_script and -ac_marmara are mutually exclusive\n");
-            StartShutdown();
-        }
+
         if ( ASSETCHAINS_ENDSUBSIDY[0] != 0 || ASSETCHAINS_REWARD[0] != 0 || ASSETCHAINS_HALVING[0] != 0 || ASSETCHAINS_DECAY[0] != 0 || ASSETCHAINS_COMMISSION != 0 || ASSETCHAINS_PUBLIC != 0 || ASSETCHAINS_PRIVATE != 0 || ASSETCHAINS_TXPOW != 0 || ASSETCHAINS_FOUNDERS != 0 || ASSETCHAINS_SCRIPTPUB.size() > 1 || ASSETCHAINS_SELFIMPORT.size() > 0 || ASSETCHAINS_OVERRIDE_PUBKEY33[0] != 0 || ASSETCHAINS_TIMELOCKGTE != _ASSETCHAINS_TIMELOCKOFF|| ASSETCHAINS_ALGO != ASSETCHAINS_EQUIHASH || ASSETCHAINS_LWMAPOS != 0 || ASSETCHAINS_LASTERA > 0 || ASSETCHAINS_BEAMPORT != 0 || ASSETCHAINS_CODAPORT != 0 || ASSETCHAINS_MARMARA != 0 || nonz > 0 || ASSETCHAINS_CCLIB.size() > 0 || ASSETCHAINS_FOUNDERS_REWARD != 0 || ASSETCHAINS_NOTARY_PAY[0] != 0 || ASSETCHAINS_BLOCKTIME != 60 || ASSETCHAINS_CBOPRET != 0 || Mineropret.size() != 0 || (ASSETCHAINS_NK[0] != 0 && ASSETCHAINS_NK[1] != 0) || KOMODO_SNAPSHOT_INTERVAL != 0 || ASSETCHAINS_EARLYTXIDCONTRACT != 0 || ASSETCHAINS_CBMATURITY != 0 || ASSETCHAINS_ADAPTIVEPOW != 0 )
         {
             fprintf(stderr,"perc %.4f%% ac_pub=[%02x%02x%02x...] acsize.%d\n",dstr(ASSETCHAINS_COMMISSION)*100,ASSETCHAINS_OVERRIDE_PUBKEY33[0],ASSETCHAINS_OVERRIDE_PUBKEY33[1],ASSETCHAINS_OVERRIDE_PUBKEY33[2],(int32_t)ASSETCHAINS_SCRIPTPUB.size());
@@ -2318,16 +2358,7 @@ fprintf(stderr,"extralen.%d before disable bits\n",extralen);
     {
         BITCOIND_RPCPORT = GetArg("-rpcport", ASSETCHAINS_RPCPORT);
         //fprintf(stderr,"(%s) port.%u chain params initialized\n",ASSETCHAINS_SYMBOL,BITCOIND_RPCPORT);
-        if ( strcmp("PIRATE",ASSETCHAINS_SYMBOL) == 0 && ASSETCHAINS_HALVING[0] == 77777 )
-        {
-            ASSETCHAINS_HALVING[0] *= 5;
-            fprintf(stderr,"PIRATE halving changed to %d %.1f days ASSETCHAINS_LASTERA.%llu\n",(int32_t)ASSETCHAINS_HALVING[0],(double)ASSETCHAINS_HALVING[0]/1440,(long long)ASSETCHAINS_LASTERA);
-        }
-        else if ( ASSETCHAINS_PRIVATE != 0 )
-        {
-            fprintf(stderr,"-ac_private for a non-PIRATE chain is not supported. The only reason to have an -ac_private chain is for total privacy and that is best achieved with the largest anon set. PIRATE has that and it is recommended to just use PIRATE\n");
-            StartShutdown();
-        }
+
         // Set cc enables for all existing ac_cc chains here. 
         if ( strcmp("AXO",ASSETCHAINS_SYMBOL) == 0 )
         {
