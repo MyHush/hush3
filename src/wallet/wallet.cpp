@@ -493,6 +493,32 @@ void CWallet::ChainTip(const CBlockIndex *pindex,
                 DeleteWalletTransactions(pindex);
             }
         }
+
+        // DANGER: Let's put logic for witness flushing to disk here and see what would happen ... sapling consolidation + wallet compacting + witness flushing = ?
+        // SetBestChain() can be expensive for large wallets, so do only
+        // this sometimes; the wallet state will be brought up to date
+        // during rescanning on startup.
+        int64_t nNow = GetTimeMicros();
+        if (nLastSetChain == 0) {
+            // Don't flush during startup.
+            nLastSetChain = nNow;
+        }
+
+        // flush witness cache once in a WITNESS_WRITE_INTERVAL or per WITNESS_WRITE_UPDATES, whatever comes first
+        if (++nSetChainUpdates >= WITNESS_WRITE_UPDATES ||
+                nLastSetChain + (int64_t)WITNESS_WRITE_INTERVAL * 1000000 < nNow) {
+            nLastSetChain = nNow;
+            nSetChainUpdates = 0;
+            CBlockLocator loc;
+            {
+                // The locator must be derived from the pindex used to increment
+                // the witnesses above; pindex can be behind chainActive.Tip().
+                LOCK(cs_main);
+                loc = chainActive.GetLocator(pindex);
+            }
+            SetBestChain(loc);
+        }
+
     } else {
         DecrementNoteWitnesses(pindex);
         UpdateNullifierNoteMapForBlock(pblock);
@@ -1072,10 +1098,13 @@ void CWallet::BuildWitnessCache(const CBlockIndex* pindex, bool witnessOnly)
 {
 
   LOCK2(cs_main, cs_wallet);
+  
+  //LogPrintf("BUILDING WITNESS CACHE STARTED\n");
 
   int startHeight = VerifyAndSetInitialWitness(pindex, witnessOnly) + 1;
 
   if (startHeight > pindex->GetHeight() || witnessOnly) {
+    //LogPrintf("BUILDING WITNESS CACHE (WITNESSES ONLY) FINISHED\n");
     return;
   }
 
@@ -1135,6 +1164,8 @@ void CWallet::BuildWitnessCache(const CBlockIndex* pindex, bool witnessOnly)
     pblockindex = chainActive.Next(pblockindex);
 
   }
+
+  //LogPrintf("BUILDING WITNESS CACHE (FULL) FINISHED\n");
 
 }
 

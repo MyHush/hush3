@@ -2020,11 +2020,10 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
         RegisterValidationInterface(pwalletMain);
 
-        CBlockIndex *pindexRescan = chainActive.Tip();
+        CBlockIndex *pindexRescan = chainActive.Genesis();
         if (clearWitnessCaches || GetBoolArg("-rescan", false))
         {
             pwalletMain->ClearNoteWitnessCache();
-            pindexRescan = chainActive.Genesis();
         }
         else
         {
@@ -2032,8 +2031,6 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
             CBlockLocator locator;
             if (walletdb.ReadBestBlock(locator))
                 pindexRescan = FindForkInGlobalIndex(chainActive, locator);
-            else
-                pindexRescan = chainActive.Genesis();
         }
         if (chainActive.Tip() && chainActive.Tip() != pindexRescan)
         {
