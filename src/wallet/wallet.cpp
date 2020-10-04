@@ -1099,12 +1099,9 @@ void CWallet::BuildWitnessCache(const CBlockIndex* pindex, bool witnessOnly)
 
   LOCK2(cs_main, cs_wallet);
   
-  //LogPrintf("BUILDING WITNESS CACHE STARTED\n");
-
   int startHeight = VerifyAndSetInitialWitness(pindex, witnessOnly) + 1;
 
   if (startHeight > pindex->GetHeight() || witnessOnly) {
-    //LogPrintf("BUILDING WITNESS CACHE (WITNESSES ONLY) FINISHED\n");
     return;
   }
 
@@ -1164,8 +1161,6 @@ void CWallet::BuildWitnessCache(const CBlockIndex* pindex, bool witnessOnly)
     pblockindex = chainActive.Next(pblockindex);
 
   }
-
-  //LogPrintf("BUILDING WITNESS CACHE (FULL) FINISHED\n");
 
 }
 
