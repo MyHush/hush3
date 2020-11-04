@@ -28,8 +28,8 @@
 #include <string>
 #include <vector>
 #include <boost/foreach.hpp>
-#include <openssl/aes.h>
-#include <openssl/evp.h>
+#include <wolfssl/openssl/aes.h>
+#include <wolfssl/openssl/evp.h>
 
 using namespace libzcash;
 
