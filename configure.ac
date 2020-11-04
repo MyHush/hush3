@@ -688,11 +688,11 @@ else
   # BUG: Fix this:
   echo 'BUG: configure does not yet check for the following dependencies if pkg-config is not on the system: libcrypto++, gmp'
 
-  AC_CHECK_HEADER([wolfssl/openssl/crypto.h],,AC_MSG_ERROR(libcrypto headers missing))
-  AC_CHECK_LIB([crypto],      [main],CRYPTO_LIBS=-lwolfssl, AC_MSG_ERROR(libcrypto missing))
+  AC_CHECK_HEADER([wolfssl/wolfcrypt/sha512.h],,AC_MSG_ERROR(libwolfssl headers missing))
+  AC_CHECK_LIB([wolfssl], [wc_InitSha512],CRYPTO_LIBS=-lwolfssl, AC_MSG_ERROR(libwolfssl missing))
 
   AC_CHECK_HEADER([wolfssl/ssl.h],, AC_MSG_ERROR(libssl headers missing),)
-  AC_CHECK_LIB([wolfssl],         [main],SSL_LIBS=-lwolfssl, AC_MSG_ERROR(libwolfssl missing))
+  AC_CHECK_LIB([wolfssl], [main],SSL_LIBS=-lwolfssl, AC_MSG_ERROR(libwolfssl missing))
 
   if test x$build_bitcoin_utils$build_bitcoind$bitcoin_enable_qt$use_tests != xnononono; then
     AC_CHECK_HEADER([event2/event.h],, AC_MSG_ERROR(libevent headers missing),)

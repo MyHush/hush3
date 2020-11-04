@@ -8,6 +8,7 @@ $(package)_sha256_hash=7de62300ce14daa0051bfefc7c4d6302f96cabc768b6ae49eda77523b
 define $(package)_set_vars
 $(package)_config_env=AR="$($(package)_ar)" RANLIB="$($(package)_ranlib)" CC="$($(package)_cc)"
 $(package)_config_opts=--prefix=$(host_prefix)
+$(package)_config_opts+=--host=$(host)
 $(package)_config_opts+=--enable-static
 $(package)_config_opts+=--disable-shared
 $(package)_config_opts+=--disable-examples
